@@ -1,3 +1,301 @@
+# simFastBOIN 2.0.0
+
+The first release since 1.3.2, and a breaking one. Versions 1.4.0 and 1.5.0 were
+development versions on GitHub and were never released; their entries are kept
+below because the changes they describe are all part of this release. Anyone
+upgrading from 1.3.2 should read the 1.4.0 entry, which lists the renamed
+functions and the corrected defects.
+
+This section covers three design options requested for a quality control review.
+Every new option is off by default, so a simulation run with version 1.4.0
+arguments produces exactly the same trials, selections and summary figures. Two
+names in the returned objects did change, and are listed under their respective
+headings below: `overdose60` and `overdose80` moved into the new `overdose`
+component, and one reason code was renamed.
+
+## Staying on one DLT out of three
+
+* `stay_on_1_of_3` makes one DLT out of three patients a stay rather than a
+  de-escalation, which is the modification offered by the BOIN web application.
+  It is available on `boin_boundary()`, `boin_decision_table()`,
+  `boin_simulate()`, `sim_boin()` and `sim_boin_multi()`.
+
+  The option raises the de-escalation boundary at three patients from one DLT to
+  two, so exactly one cell of the decision table changes and nothing else moves.
+  It is applied only where one DLT out of three currently de-escalates: it never
+  overrides an escalation, and it never overrides an elimination, which is a
+  safety rule. `boin_boundary()` reports whether it took effect in
+  `stay_on_1_of_3_applied`.
+
+  With the default thresholds it takes effect for target rates from about 0.098
+  to 0.279. Note that the web application describes the range as 0.25 to 0.279;
+  the upper end agrees, but the lower end is 0.098, below which one DLT out of
+  three already eliminates the dose.
+
+## Bounding the MTD by a stated DLT rate
+
+* `mtd_max_estimate` caps the isotonic estimate a dose may have and still be
+  selected as the MTD, on `boin_select_mtd()`, `sim_boin()` and
+  `sim_boin_multi()`. It changes only the selection, never the dose-finding, so
+  the decision table is untouched.
+
+  `bound_mtd` caps the estimate at the de-escalation boundary, which always lies
+  above the target rate. A cap at or below the target therefore cannot be
+  expressed with `bound_mtd` at all, and needs `mtd_max_estimate`.
+
+* The reason code `"no_dose_below_lambda_d"` returned by `boin_select_mtd()` is
+  now `"no_dose_below_bound"`, since the bound need not be the de-escalation
+  boundary.
+
+## Exposure to overly toxic doses
+
+* `sim_boin()` and `sim_boin_multi()` gain `overdose_cutoff`, and report an
+  `overdose` component describing how far patients were exposed to doses whose
+  true DLT probability exceeds it:
+
+  - `pct_patients`, the percentage of all simulated patients treated at such a
+    dose, that is the probability that a patient is dosed above the cutoff;
+  - `pct_patients_by_trial`, the same percentage computed within each trial and
+    then averaged;
+  - `avg_n_patients`, `pct_trials_any`, `pct_trials_over_60` and
+    `pct_trials_over_80`.
+
+  and how often the design ends up recommending such a dose, which is a separate
+  question from exposure during the trial:
+
+  - `pct_trials_mtd_above`, the percentage of all trials whose selected MTD is
+    above the cutoff;
+  - `pct_mtd_above_when_selected`, the same among the trials that selected an
+    MTD at all.
+
+  The cutoff defaults to `target`, which reproduces the earlier behavior.
+
+* This replaces the `overdose60` and `overdose80` components of the result, which
+  are now `overdose$pct_trials_over_60` and `overdose$pct_trials_over_80`. They
+  are reported as zero rather than `NA` when no dose exceeds the cutoff, and the
+  `doses` component names the dose levels that do.
+
+## Choosing a de-escalation boundary directly
+
+* `boin_p_tox()` returns the value of `p_tox` for which the de-escalation
+  boundary equals a stated value, inverting `boin_lambda()`. A design team that
+  wants to tighten the boundary usually states the boundary rather than the
+  threshold behind it, and this turns that statement into the argument the other
+  functions take.
+
+  A boundary close to the target needs a threshold close to the target, and the
+  rest of the package refuses a `p_tox` within ten percent of `target`. The
+  inverted value is still returned, but a warning names the smallest boundary
+  that leaves a usable threshold: about 0.315 for a target of 0.30.
+
+## Printing
+
+* `print()` on the result of `sim_boin_multi()` gains `percent` and `digits`,
+  which the method for a single scenario already had. Passing `percent = TRUE`
+  to the cross-scenario method previously fell into `...` and was ignored, so
+  the counts were printed as though nothing had been asked for.
+
+## Documentation
+
+* `start_dose`, added in version 1.4.0, is now documented as being ignored when
+  `titration = TRUE`, because the titration phase always begins at the lowest
+  dose. This matches the reference implementation.
+
+* The spelling throughout the documentation is now the United States spelling
+  declared by the `Language` field, and `tests/spelling.R` keeps it that way.
+  The `colours` argument of `plot.boin_decision_table()` is renamed `colors`
+  accordingly. The argument was introduced in version 1.4.0, which was never
+  released, so no released code is affected.
+
+## The 3+3 design as a comparator
+
+* `oc_3p3()` returns the operating characteristics of the traditional 3+3
+  design. The probability of every path the design can take is evaluated in
+  closed form, so the result carries no Monte Carlo error and takes no seed.
+  `sim_3p3()` simulates the same design and is there to confirm the closed form.
+  Both return an object of class `oc_3p3` whose components carry the same names
+  as those of `sim_boin()`, so the two designs can be tabulated side by side, and
+  `print()` lays them out the same way.
+
+* `mtd_rule` selects between the two definitions of the MTD in common use.
+  `"previous"` names the dose below the one declared too toxic. `"expand"` takes
+  the MTD to be the highest dose at which at most one of six patients had a DLT,
+  expanding a dose that has only three patients before assessing it. Neither is
+  universally the standard, so the comparator being matched should be checked
+  before a rule is chosen. The two agree on which doses are visited during
+  escalation, and therefore on the probability that a patient is exposed to an
+  overly toxic dose; they differ in the sample size and in the selection
+  percentages.
+
+* `overdose_cutoff` works as it does for `sim_boin()` and defaults to one third
+  here, which is the rate the regulatory question is asked about. The 3+3 design
+  has no fixed maximum sample size, so the within-trial exposure percentage and
+  the 60 percent and 80 percent thresholds reported for BOIN have no counterpart
+  and are not returned.
+
+## Validation
+
+* `inst/validation/compare-with-BOIN.R` compares the package against `BOIN` over
+  200 configurations, five dose-toxicity scenarios by five designs by eight
+  option combinations, and covers `extrasafe`, `titration` and `boundMTD`. All
+  200 agree to within floating point on the selection percentages, the patients
+  and DLTs at each dose, the percentage of trials ending without an MTD and the
+  totals. This is a defect test rather than a Monte Carlo comparison, because the
+  two implementations draw the same variates in the same order for a given seed.
+  The options that `BOIN` has no counterpart for are checked separately, to
+  confirm that each leaves the simulated trials untouched when it is off.
+
+# simFastBOIN 1.4.0
+
+This is a substantial revision. The simulation engine has been rewritten in C++,
+the user-facing functions have been renamed, and several defects that affected
+numerical results have been corrected. Results obtained with version 1.3.2 are
+not reproduced by this version, even with the same seed.
+
+## Exact agreement with the BOIN package
+
+The engine now draws one uniform variate per patient, in enrollment order, and
+applies the decision rules in the same order as
+`BOIN::get.oc()`. With the same seed and matching arguments the two
+implementations agree trial by trial rather than only on average. The test suite
+checks this directly against `BOIN::get.oc()` and `BOIN::get.boundary()` when the
+BOIN package is installed.
+
+Version 1.3.2 claimed in its README that random number generation was the same as
+that of the BOIN package when the seed was fixed. That claim was incorrect,
+because trials were generated across trials rather than one at a time, and it has
+been removed.
+
+## Corrected defects
+
+* `max_total_pts` was computed as `n_cohort * cohort_size[1]`, so a trial with a
+  vector `cohort_size` used the wrong maximum sample size. It is now the sum of
+  the cohort sizes.
+
+* With `titration = TRUE` and a vector `cohort_size`, the titration phase tested
+  `if (cohort_size > 1)` on a vector, which stops with an error on R 4.2 and
+  later.
+
+* The early stopping rule at `n_earlystop` was evaluated after the dose had
+  already been changed, and therefore against the wrong dose. It is now evaluated
+  at the dose that was just treated, before the transition, as in the reference
+  implementation. This changes operating characteristics, in particular when a
+  de-escalation lands on a dose that has already accrued `n_earlystop` patients.
+
+* MTD selection now re-derives dose elimination from the final data of the trial
+  instead of carrying the elimination status over from the dose-finding stage.
+  The two differ when a trial ends at its maximum sample size, because the last
+  cohort was then never checked against the elimination boundary.
+
+* The isotonic fit used for MTD selection is now computed over the admissible
+  doses only. Previously every treated dose entered the fit, so an eliminated
+  dose could change the estimates at the doses below it and hence the selected
+  MTD.
+
+* The tie-breaking perturbation was applied twice, once inside
+  `isotonic_regression()` and once inside `select_mtd()`, and was indexed by dose
+  level rather than by position in the admissible set. It is now applied once,
+  during MTD selection, and `boin_isotonic()` returns the unperturbed estimates.
+
+* `get_pts_and_tox()` called `set.seed()` without restoring the state of the
+  random number generator. The new functions restore it on exit.
+
+* Random number generation was not consistent within a trial: the titration
+  phase, the ordinary cohorts and the final partial cohort used three different
+  schemes, the last of which drew a binomial variate. All patients now use a
+  single scheme.
+
+## Renamed functions
+
+The old names remain available and issue a deprecation warning, but they return
+the value of the replacement function, which is not the value returned by version
+1.3.2. See `?"simFastBOIN-deprecated"`.
+
+| Version 1.3.2 | Version 1.4.0 |
+|---|---|
+| `get_boin_boundary()` | `boin_lambda()`, and `boin_boundary()` for the integer boundaries |
+| `get_boin_decision()` | `boin_decision_table()` |
+| `get_boin_stopping_boundaries()` | `boin_boundary(extrasafe = TRUE)` |
+| `get_pts_and_tox()` | `boin_simulate()` |
+| `isotonic_regression()` | `boin_isotonic()` |
+| `select_mtd()` | `boin_select_mtd()` |
+
+`sim_boin()` and `sim_boin_multi()` keep their names.
+
+## Changed interfaces
+
+* The design arguments come first: `sim_boin(target, p_true, n_cohort,
+  cohort_size, ...)`, with `n_trials` now an optional argument. Calls that relied
+  on positional matching must be updated.
+
+* `boundMTD` is now `bound_mtd`, and `return_details` is now `keep_trials`.
+
+* `sim_boin()` returns an object of class `boin_oc` directly, rather than a list
+  with a `summary` element. Selection percentages, average patient counts and
+  average DLT counts are separate components, and the percentage of trials
+  selecting no MTD is no longer appended to the selection vector.
+
+* `sim_boin()` and `sim_boin_multi()` now return their result visibly, so calling
+  them at the prompt prints the summary and assigning the result is silent.
+  Previously the result was invisible unless `verbose = TRUE`.
+
+* `sim_boin_multi()` uses the same seed for every scenario. Version 1.3.2 used
+  `seed + i` for the i-th scenario, so a scenario simulated in a multi-scenario
+  run did not match the same scenario simulated on its own.
+
+* `sim_boin_multi()` accepts a plain named list of `p_true` vectors in addition
+  to the list of `list(name, p_true)` used previously.
+
+* `boin_select_mtd()` takes the patient and DLT counts, not precomputed isotonic
+  estimates, since the fit depends on which doses are admissible.
+
+* Progress messages are emitted with `message()` rather than `cat()`, so they can
+  be suppressed with `suppressMessages()`.
+
+## New
+
+* `start_dose`, matching the reference implementation, which did not exist in
+  version 1.3.2.
+* `boin_boundary()` returns the escalation, de-escalation, elimination and safety
+  stopping boundaries as integer DLT counts indexed by sample size, with a print
+  method that can restrict the table to the end of each cohort.
+* `boin_decision_table()` returns a classed object with `print` and `plot`
+  methods. The print method blanks the impossible combinations and can restrict
+  the table to the sample sizes reached at the end of a cohort; the plot method
+  draws the table as a grid of colored cells, each carrying its decision letter
+  so that the figure does not rely on color alone. It needs `ggplot2`, which is
+  suggested rather than required.
+* `boin_stopping_table()` lays the safety stopping boundary out as a two-row
+  table, one column per sample size.
+* `boin_simulate()` returns the raw trial data with a `stop_reason` for every
+  trial, and has a print method.
+* Operating characteristics now include the risk of overdosing 60 and 80 percent
+  of patients, and the distribution of the reason for stopping.
+* Arguments are validated. Out-of-range probabilities, thresholds too close to
+  the target, non-monotone `p_true` and inconsistent counts are reported instead
+  of propagating silently.
+
+## Dependencies
+
+* Added `Rcpp`, and `utils` for one call to `globalVariables()`.
+* Added `ggplot2` to `Suggests`, used only by `plot.boin_decision_table()`.
+* Removed `Iso`. The pool adjacent violators algorithm is implemented in C++;
+  `Iso` is now only suggested, and used in a test that checks the two agree.
+* `knitr` and `kableExtra` moved out of `Imports`. `knitr` is suggested and used
+  for the vignette and for the optional table output; `kableExtra` is no longer
+  used.
+* `utils` was imported in `NAMESPACE` but absent from `DESCRIPTION`. Neither
+  imports it now.
+
+## Performance
+
+The C++ engine replaces the vectorised R implementation, and MTD selection no
+longer calls out to R once per trial. For five doses, 20 cohorts of three,
+`n_earlystop = 18` and 10000 simulated trials, one measurement gave 9.98 seconds
+elapsed for `BOIN::get.oc()` against 0.07 seconds for `sim_boin()`. The ratio
+depends on the design and on the machine, and the README carries the code that
+reproduces the measurement.
+
 # simFastBOIN 1.3.2
 
 ## New Features

@@ -10,11 +10,9 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-<meta name="author" content="Gosuke Homma" />
 
-<meta name="date" content="2025-12-11" />
 
-<title>Introduction to simFastBOIN</title>
+<title>Getting started with simFastBOIN</title>
 
 <script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
 // be compatible with the behavior of Pandoc < 2.8).
@@ -50,8 +48,9 @@ overflow: visible;
 }
 </style>
 <style type="text/css" data-origin="pandoc">
+html { -webkit-text-size-adjust: 100%; }
 pre > code.sourceCode { white-space: pre; position: relative; }
-pre > code.sourceCode > span { line-height: 1.25; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
 pre > code.sourceCode > span:empty { height: 1.2em; }
 .sourceCode { overflow: visible; }
 code.sourceCode > span { color: inherit; text-decoration: inherit; }
@@ -62,7 +61,7 @@ div.sourceCode { overflow: auto; }
 }
 @media print {
 pre > code.sourceCode { white-space: pre-wrap; }
-pre > code.sourceCode > span { display: inline-block; text-indent: -5em; padding-left: 5em; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
 }
 pre.numberSource code
 { counter-reset: source-line 0; }
@@ -338,394 +337,357 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 
 
 
-<h1 class="title toc-ignore">Introduction to simFastBOIN</h1>
-<h4 class="author">Gosuke Homma</h4>
-<h4 class="date">2025-12-11</h4>
+<h1 class="title toc-ignore">Getting started with simFastBOIN</h1>
 
 
 
-<div id="overview" class="section level2">
-<h2>Overview</h2>
-<p><strong>simFastBOIN</strong> provides fast and efficient simulation
-tools for Bayesian Optimal Interval (BOIN) designs in Phase I clinical
-trials. The package enables researchers to evaluate operating
-characteristics and design performance across different dose-toxicity
-scenarios.</p>
-<div id="key-features" class="section level3">
-<h3>Key Features</h3>
-<ul>
-<li><strong>High Performance</strong>: Vectorized implementation (2-5x
-faster than traditional approaches)</li>
-<li><strong>BOIN Compatible</strong>: Results match BOIN package within
-&lt;0.5% across all scenarios</li>
-<li><strong>User-Friendly</strong>: Simplified API with automatic
-decision table generation</li>
-<li><strong>Flexible</strong>: Multiple safety stopping rules and
-customizable design parameters</li>
-<li><strong>Multi-Scenario Support</strong>: Evaluate multiple
-dose-toxicity scenarios simultaneously</li>
-<li><strong>Publication-Ready Output</strong>: Professional table
-formatting options</li>
-</ul>
+<div id="what-the-package-does" class="section level2">
+<h2>What the package does</h2>
+<p>The Bayesian optimal interval (BOIN) design assigns a cohort of
+patients to a dose, counts how many experienced a dose-limiting
+toxicity, and compares the observed rate against two boundaries. If the
+rate is at or below the lower boundary the next cohort is escalated, if
+it reaches the upper boundary the next cohort is de-escalated, and
+otherwise the dose is repeated. The rule is as simple to run as a 3+3
+design, and Liu and Yuan report average performance comparable to that
+of the continual reassessment method.</p>
+<p>This package provides the boundaries, a fast simulation engine for
+operating characteristics, and the MTD selection rule applied at the end
+of a trial. The traditional 3+3 design is included as a comparator, so
+the two can be tabulated side by side.</p>
 </div>
+<div id="decision-boundaries" class="section level2">
+<h2>Decision boundaries</h2>
+<p><code>boin_lambda()</code> returns the two interval boundaries, which
+depend only on the target rate and the two thresholds around it.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="fu">boin_lambda</span>(<span class="at">target =</span> <span class="fl">0.30</span>)</span>
+<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a><span class="co">#&gt; $lambda_e</span></span>
+<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a><span class="co">#&gt; [1] 0.2364907</span></span>
+<span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb1-5"><a href="#cb1-5" tabindex="-1"></a><span class="co">#&gt; $lambda_d</span></span>
+<span id="cb1-6"><a href="#cb1-6" tabindex="-1"></a><span class="co">#&gt; [1] 0.3585195</span></span></code></pre></div>
+<p>In practice the boundaries are used as whole numbers of toxicities.
+<code>boin_boundary()</code> tabulates them, together with the
+elimination boundary, for every attainable sample size at a dose.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a>bd <span class="ot">&lt;-</span> <span class="fu">boin_boundary</span>(<span class="at">target =</span> <span class="fl">0.30</span>, <span class="at">max_n =</span> <span class="dv">18</span>, <span class="at">extrasafe =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a><span class="fu">print</span>(bd, <span class="at">cohort_size =</span> <span class="dv">3</span>)</span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a><span class="co">#&gt; BOIN decision boundaries</span></span>
+<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a><span class="co">#&gt;   target DLT rate : 0.3</span></span>
+<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a><span class="co">#&gt;   p_saf / p_tox   : 0.18 / 0.42</span></span>
+<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a><span class="co">#&gt;   lambda_e        : 0.2365</span></span>
+<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a><span class="co">#&gt;   lambda_d        : 0.3585</span></span>
+<span id="cb2-8"><a href="#cb2-8" tabindex="-1"></a><span class="co">#&gt;   cutoff_eli      : 0.95</span></span>
+<span id="cb2-9"><a href="#cb2-9" tabindex="-1"></a><span class="co">#&gt;   safety cutoff   : 0.9</span></span>
+<span id="cb2-10"><a href="#cb2-10" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb2-11"><a href="#cb2-11" tabindex="-1"></a><span class="co">#&gt;                                                  </span></span>
+<span id="cb2-12"><a href="#cb2-12" tabindex="-1"></a><span class="co">#&gt; Number of patients treated         3 6 9 12 15 18</span></span>
+<span id="cb2-13"><a href="#cb2-13" tabindex="-1"></a><span class="co">#&gt; Escalate if # of DLT &lt;=            0 1 2  2  3  4</span></span>
+<span id="cb2-14"><a href="#cb2-14" tabindex="-1"></a><span class="co">#&gt; Deescalate if # of DLT &gt;=          2 3 4  5  6  7</span></span>
+<span id="cb2-15"><a href="#cb2-15" tabindex="-1"></a><span class="co">#&gt; Eliminate if # of DLT &gt;=           3 4 5  7  8  9</span></span>
+<span id="cb2-16"><a href="#cb2-16" tabindex="-1"></a><span class="co">#&gt; Stop at lowest dose if # of DLT &gt;= 2 4 5  6  7  8</span></span></code></pre></div>
+<p>Reading the first column: with three patients treated, escalate on
+zero toxicities, de-escalate on two or more, and stay on exactly
+one.</p>
+<p>The same information can be read as a table indexed by both counts.
+Printing it with a cohort size shows only the sample sizes that are
+actually reached.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a>decisions <span class="ot">&lt;-</span> <span class="fu">boin_decision_table</span>(<span class="at">target =</span> <span class="fl">0.30</span>, <span class="at">max_n =</span> <span class="dv">18</span>)</span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a><span class="fu">print</span>(decisions, <span class="at">cohort_size =</span> <span class="dv">3</span>)</span>
+<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a><span class="co">#&gt;     Patients</span></span>
+<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a><span class="co">#&gt; DLTs 3  6  9  12 15 18</span></span>
+<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a><span class="co">#&gt;   0  E  E  E  E  E  E </span></span>
+<span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a><span class="co">#&gt;   1  S  E  E  E  E  E </span></span>
+<span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a><span class="co">#&gt;   2  D  S  E  E  E  E </span></span>
+<span id="cb3-9"><a href="#cb3-9" tabindex="-1"></a><span class="co">#&gt;   3  DE D  S  S  E  E </span></span>
+<span id="cb3-10"><a href="#cb3-10" tabindex="-1"></a><span class="co">#&gt;   4     DE D  S  S  E </span></span>
+<span id="cb3-11"><a href="#cb3-11" tabindex="-1"></a><span class="co">#&gt;   5     DE DE D  S  S </span></span>
+<span id="cb3-12"><a href="#cb3-12" tabindex="-1"></a><span class="co">#&gt;   6     DE DE D  D  S </span></span>
+<span id="cb3-13"><a href="#cb3-13" tabindex="-1"></a><span class="co">#&gt;   7        DE DE D  D </span></span>
+<span id="cb3-14"><a href="#cb3-14" tabindex="-1"></a><span class="co">#&gt;   8        DE DE DE D </span></span>
+<span id="cb3-15"><a href="#cb3-15" tabindex="-1"></a><span class="co">#&gt;   9        DE DE DE DE</span></span>
+<span id="cb3-16"><a href="#cb3-16" tabindex="-1"></a><span class="co">#&gt;   10          DE DE DE</span></span>
+<span id="cb3-17"><a href="#cb3-17" tabindex="-1"></a><span class="co">#&gt;   11          DE DE DE</span></span>
+<span id="cb3-18"><a href="#cb3-18" tabindex="-1"></a><span class="co">#&gt;   12          DE DE DE</span></span>
+<span id="cb3-19"><a href="#cb3-19" tabindex="-1"></a><span class="co">#&gt;   13             DE DE</span></span>
+<span id="cb3-20"><a href="#cb3-20" tabindex="-1"></a><span class="co">#&gt;   14             DE DE</span></span>
+<span id="cb3-21"><a href="#cb3-21" tabindex="-1"></a><span class="co">#&gt;   15             DE DE</span></span>
+<span id="cb3-22"><a href="#cb3-22" tabindex="-1"></a><span class="co">#&gt;   16                DE</span></span>
+<span id="cb3-23"><a href="#cb3-23" tabindex="-1"></a><span class="co">#&gt;   17                DE</span></span>
+<span id="cb3-24"><a href="#cb3-24" tabindex="-1"></a><span class="co">#&gt;   18                DE</span></span>
+<span id="cb3-25"><a href="#cb3-25" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb3-26"><a href="#cb3-26" tabindex="-1"></a><span class="co">#&gt; E = escalate, S = stay, D = de-escalate, DE = de-escalate and eliminate this dose and above</span></span></code></pre></div>
+<p>For a protocol the table is usually easier to read as a picture.
+Every cell carries its decision letter, so the figure survives grayscale
+printing.</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a><span class="fu">plot</span>(decisions)</span></code></pre></div>
+<p><img role="img" src="data:image/png;base64,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" /><!-- --></p>
+<p>When <code>extrasafe = TRUE</code> there is a second, stricter rule
+that applies at the lowest dose only. <code>boin_stopping_table()</code>
+lays it out the same way.</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a><span class="fu">boin_stopping_table</span>(bd, <span class="at">cohort_size =</span> <span class="dv">3</span>)</span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a><span class="co">#&gt;                                                               3 6 9 12 15 18</span></span>
+<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a><span class="co">#&gt; Number of evaluable patients treated at the lowest dose level 3 6 9 12 15 18</span></span>
+<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a><span class="co">#&gt; Stop the trial if # of DLT &gt;=                                 2 4 5  6  7  8</span></span></code></pre></div>
 </div>
-<div id="installation" class="section level2">
-<h2>Installation</h2>
-<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="co"># Install from GitHub</span></span>
-<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a>devtools<span class="sc">::</span><span class="fu">install_github</span>(<span class="st">&quot;gosukehommaEX/simFastBOIN&quot;</span>)</span></code></pre></div>
+<div id="operating-characteristics-for-one-scenario" class="section level2">
+<h2>Operating characteristics for one scenario</h2>
+<p><code>sim_boin()</code> simulates the design many times under an
+assumed dose-toxicity curve and summarizes the result.</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a>oc <span class="ot">&lt;-</span> <span class="fu">sim_boin</span>(</span>
+<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a>  <span class="at">target =</span> <span class="fl">0.30</span>,</span>
+<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a>  <span class="at">p_true =</span> <span class="fu">c</span>(<span class="fl">0.05</span>, <span class="fl">0.15</span>, <span class="fl">0.30</span>, <span class="fl">0.45</span>, <span class="fl">0.60</span>),</span>
+<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a>  <span class="at">n_cohort =</span> <span class="dv">10</span>,</span>
+<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a>  <span class="at">cohort_size =</span> <span class="dv">3</span>,</span>
+<span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a>  <span class="at">n_trials =</span> <span class="dv">2000</span>,</span>
+<span id="cb6-7"><a href="#cb6-7" tabindex="-1"></a>  <span class="at">seed =</span> <span class="dv">123</span></span>
+<span id="cb6-8"><a href="#cb6-8" tabindex="-1"></a>)</span>
+<span id="cb6-9"><a href="#cb6-9" tabindex="-1"></a></span>
+<span id="cb6-10"><a href="#cb6-10" tabindex="-1"></a>oc</span>
+<span id="cb6-11"><a href="#cb6-11" tabindex="-1"></a><span class="co">#&gt; BOIN operating characteristics</span></span>
+<span id="cb6-12"><a href="#cb6-12" tabindex="-1"></a><span class="co">#&gt;   target DLT rate : 0.3</span></span>
+<span id="cb6-13"><a href="#cb6-13" tabindex="-1"></a><span class="co">#&gt;   trials          : 2000</span></span>
+<span id="cb6-14"><a href="#cb6-14" tabindex="-1"></a><span class="co">#&gt;   cohorts         : 10 of size 3</span></span>
+<span id="cb6-15"><a href="#cb6-15" tabindex="-1"></a><span class="co">#&gt;   max sample size : 30</span></span>
+<span id="cb6-16"><a href="#cb6-16" tabindex="-1"></a><span class="co">#&gt;   lambda_e / _d   : 0.2365 / 0.3585</span></span>
+<span id="cb6-17"><a href="#cb6-17" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb6-18"><a href="#cb6-18" tabindex="-1"></a><span class="co">#&gt;                   DL1  DL2  DL3  DL4  DL5 Total / No MTD</span></span>
+<span id="cb6-19"><a href="#cb6-19" tabindex="-1"></a><span class="co">#&gt; True DLT rate (%) 5.0 15.0 30.0 45.0 60.0               </span></span>
+<span id="cb6-20"><a href="#cb6-20" tabindex="-1"></a><span class="co">#&gt; MTD selected (%)  1.2 25.0 53.1 19.1  1.6            0.0</span></span>
+<span id="cb6-21"><a href="#cb6-21" tabindex="-1"></a><span class="co">#&gt; Patients treated  4.1  8.8 10.9  4.5  0.8           29.2</span></span>
+<span id="cb6-22"><a href="#cb6-22" tabindex="-1"></a><span class="co">#&gt; Patients with DLT 0.2  1.3  3.3  2.0  0.5            7.4</span></span>
+<span id="cb6-23"><a href="#cb6-23" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb6-24"><a href="#cb6-24" tabindex="-1"></a><span class="co">#&gt; Doses above a true DLT rate of 0.3: DL4, DL5</span></span>
+<span id="cb6-25"><a href="#cb6-25" tabindex="-1"></a><span class="co">#&gt;   Patients treated there              : 18.3%</span></span>
+<span id="cb6-26"><a href="#cb6-26" tabindex="-1"></a><span class="co">#&gt;   Trials treating any patient there   : 55.8%</span></span>
+<span id="cb6-27"><a href="#cb6-27" tabindex="-1"></a><span class="co">#&gt;   Trials treating over 60% there      : 2.1%</span></span>
+<span id="cb6-28"><a href="#cb6-28" tabindex="-1"></a><span class="co">#&gt;   Trials treating over 80% there      : 0%</span></span>
+<span id="cb6-29"><a href="#cb6-29" tabindex="-1"></a><span class="co">#&gt;   Trials selecting an MTD there       : 20.6%</span></span></code></pre></div>
+<p>The third dose is the true MTD here, and it is the dose selected most
+often. The components of the result are available individually.</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a>oc<span class="sc">$</span>sel_percent</span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a><span class="co">#&gt;   DL1   DL2   DL3   DL4   DL5 </span></span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a><span class="co">#&gt;  1.20 24.95 53.15 19.10  1.55</span></span>
+<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a>oc<span class="sc">$</span>percent_no_mtd</span>
+<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a><span class="co">#&gt; [1] 0.05</span></span>
+<span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a>oc<span class="sc">$</span>overdose<span class="sc">$</span>pct_patients</span>
+<span id="cb7-7"><a href="#cb7-7" tabindex="-1"></a><span class="co">#&gt; [1] 18.30761</span></span></code></pre></div>
 </div>
-<div id="basic-usage" class="section level2">
-<h2>Basic Usage</h2>
-<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="fu">library</span>(simFastBOIN)</span></code></pre></div>
-<div id="running-a-basic-boin-simulation" class="section level3">
-<h3>Running a Basic BOIN Simulation</h3>
-<p>The most basic simulation requires only a few parameters:</p>
-<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="co"># Define design parameters</span></span>
-<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>target <span class="ot">&lt;-</span> <span class="fl">0.30</span>  <span class="co"># Target DLT rate (30%)</span></span>
-<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a>p_true <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fl">0.10</span>, <span class="fl">0.25</span>, <span class="fl">0.40</span>, <span class="fl">0.55</span>, <span class="fl">0.70</span>)  <span class="co"># True toxicity probabilities</span></span>
-<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a></span>
-<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a><span class="co"># Run simulation (progress messages suppressed)</span></span>
-<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a>result <span class="ot">&lt;-</span> <span class="fu">sim_boin</span>(</span>
-<span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a>  <span class="at">n_trials =</span> <span class="dv">1000</span>,</span>
-<span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a>  <span class="at">target =</span> target,</span>
-<span id="cb3-9"><a href="#cb3-9" tabindex="-1"></a>  <span class="at">p_true =</span> p_true,</span>
-<span id="cb3-10"><a href="#cb3-10" tabindex="-1"></a>  <span class="at">n_cohort =</span> <span class="dv">10</span>,</span>
-<span id="cb3-11"><a href="#cb3-11" tabindex="-1"></a>  <span class="at">cohort_size =</span> <span class="dv">3</span>,</span>
-<span id="cb3-12"><a href="#cb3-12" tabindex="-1"></a>  <span class="at">seed =</span> <span class="dv">123</span></span>
-<span id="cb3-13"><a href="#cb3-13" tabindex="-1"></a>)</span>
-<span id="cb3-14"><a href="#cb3-14" tabindex="-1"></a></span>
-<span id="cb3-15"><a href="#cb3-15" tabindex="-1"></a><span class="co"># Display results</span></span>
-<span id="cb3-16"><a href="#cb3-16" tabindex="-1"></a><span class="fu">print</span>(result<span class="sc">$</span>summary)</span>
-<span id="cb3-17"><a href="#cb3-17" tabindex="-1"></a><span class="co">#&gt; |         Metric|       DL1|       DL2|       DL3|       DL4|       DL5|Total/No MTD|</span></span>
-<span id="cb3-18"><a href="#cb3-18" tabindex="-1"></a><span class="co">#&gt; ---------------------------------------------------------------------------------- </span></span>
-<span id="cb3-19"><a href="#cb3-19" tabindex="-1"></a><span class="co">#&gt; |   True Tox (%)|      10.0|      25.0|      40.0|      55.0|      70.0|          |</span></span>
-<span id="cb3-20"><a href="#cb3-20" tabindex="-1"></a><span class="co">#&gt; |    MTD Sel (%)|      10.8|      52.4|      33.8|       2.8|       0.1|       0.1|</span></span>
-<span id="cb3-21"><a href="#cb3-21" tabindex="-1"></a><span class="co">#&gt; |        Avg Pts|       6.8|      11.9|       7.7|       1.8|       0.1|      28.4|</span></span>
-<span id="cb3-22"><a href="#cb3-22" tabindex="-1"></a><span class="co">#&gt; |       Avg DLTs|       0.7|       3.0|       3.1|       1.0|       0.1|       7.9|</span></span>
-<span id="cb3-23"><a href="#cb3-23" tabindex="-1"></a><span class="co">#&gt; ----------------------------------------------------------------------------------</span></span></code></pre></div>
+<div id="comparing-scenarios" class="section level2">
+<h2>Comparing scenarios</h2>
+<p>A design is judged across a range of plausible curves rather than
+one. <code>sim_boin_multi()</code> runs the same design under several
+scenarios and collects the results into one table.</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a>scenarios <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
+<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a>  <span class="st">&quot;MTD at dose 2&quot;</span> <span class="ot">=</span> <span class="fu">c</span>(<span class="fl">0.15</span>, <span class="fl">0.30</span>, <span class="fl">0.45</span>, <span class="fl">0.60</span>, <span class="fl">0.75</span>),</span>
+<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a>  <span class="st">&quot;MTD at dose 4&quot;</span> <span class="ot">=</span> <span class="fu">c</span>(<span class="fl">0.02</span>, <span class="fl">0.06</span>, <span class="fl">0.15</span>, <span class="fl">0.30</span>, <span class="fl">0.50</span>),</span>
+<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a>  <span class="st">&quot;All doses toxic&quot;</span> <span class="ot">=</span> <span class="fu">c</span>(<span class="fl">0.40</span>, <span class="fl">0.55</span>, <span class="fl">0.65</span>, <span class="fl">0.75</span>, <span class="fl">0.85</span>)</span>
+<span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a>)</span>
+<span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a></span>
+<span id="cb8-7"><a href="#cb8-7" tabindex="-1"></a><span class="fu">sim_boin_multi</span>(</span>
+<span id="cb8-8"><a href="#cb8-8" tabindex="-1"></a>  <span class="at">target =</span> <span class="fl">0.30</span>,</span>
+<span id="cb8-9"><a href="#cb8-9" tabindex="-1"></a>  <span class="at">scenarios =</span> scenarios,</span>
+<span id="cb8-10"><a href="#cb8-10" tabindex="-1"></a>  <span class="at">n_cohort =</span> <span class="dv">10</span>,</span>
+<span id="cb8-11"><a href="#cb8-11" tabindex="-1"></a>  <span class="at">cohort_size =</span> <span class="dv">3</span>,</span>
+<span id="cb8-12"><a href="#cb8-12" tabindex="-1"></a>  <span class="at">n_trials =</span> <span class="dv">2000</span>,</span>
+<span id="cb8-13"><a href="#cb8-13" tabindex="-1"></a>  <span class="at">seed =</span> <span class="dv">123</span></span>
+<span id="cb8-14"><a href="#cb8-14" tabindex="-1"></a>)</span>
+<span id="cb8-15"><a href="#cb8-15" tabindex="-1"></a><span class="co">#&gt; BOIN operating characteristics across 3 scenarios</span></span>
+<span id="cb8-16"><a href="#cb8-16" tabindex="-1"></a><span class="co">#&gt;   target DLT rate : 0.3</span></span>
+<span id="cb8-17"><a href="#cb8-17" tabindex="-1"></a><span class="co">#&gt;   trials each     : 2000</span></span>
+<span id="cb8-18"><a href="#cb8-18" tabindex="-1"></a><span class="co">#&gt;   max sample size : 30</span></span>
+<span id="cb8-19"><a href="#cb8-19" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb8-20"><a href="#cb8-20" tabindex="-1"></a><span class="co">#&gt;         Scenario              Item  DL1  DL2  DL3  DL4  DL5 Total / No MTD</span></span>
+<span id="cb8-21"><a href="#cb8-21" tabindex="-1"></a><span class="co">#&gt;    MTD at dose 2 True DLT rate (%) 15.0 30.0 45.0 60.0 75.0               </span></span>
+<span id="cb8-22"><a href="#cb8-22" tabindex="-1"></a><span class="co">#&gt;                   MTD selected (%) 23.8 55.9 17.2  1.6  0.0            1.5</span></span>
+<span id="cb8-23"><a href="#cb8-23" tabindex="-1"></a><span class="co">#&gt;                   Patients treated  9.1 12.2  5.4  0.9  0.0           27.6</span></span>
+<span id="cb8-24"><a href="#cb8-24" tabindex="-1"></a><span class="co">#&gt;                  Patients with DLT  1.3  3.7  2.5  0.5  0.0            8.1</span></span>
+<span id="cb8-25"><a href="#cb8-25" tabindex="-1"></a><span class="co">#&gt;    MTD at dose 4 True DLT rate (%)  2.0  6.0 15.0 30.0 50.0               </span></span>
+<span id="cb8-26"><a href="#cb8-26" tabindex="-1"></a><span class="co">#&gt;                   MTD selected (%)  0.0  1.6 23.4 62.3 12.7            0.0</span></span>
+<span id="cb8-27"><a href="#cb8-27" tabindex="-1"></a><span class="co">#&gt;                   Patients treated  3.2  4.2  8.2 10.1  4.0           29.8</span></span>
+<span id="cb8-28"><a href="#cb8-28" tabindex="-1"></a><span class="co">#&gt;                  Patients with DLT  0.1  0.3  1.2  3.0  2.1            6.7</span></span>
+<span id="cb8-29"><a href="#cb8-29" tabindex="-1"></a><span class="co">#&gt;  All doses toxic True DLT rate (%) 40.0 55.0 65.0 75.0 85.0               </span></span>
+<span id="cb8-30"><a href="#cb8-30" tabindex="-1"></a><span class="co">#&gt;                   MTD selected (%) 57.3  2.3  0.0  0.0  0.0           40.4</span></span>
+<span id="cb8-31"><a href="#cb8-31" tabindex="-1"></a><span class="co">#&gt;                   Patients treated 13.7  2.9  0.3  0.0  0.0           16.9</span></span>
+<span id="cb8-32"><a href="#cb8-32" tabindex="-1"></a><span class="co">#&gt;                  Patients with DLT  5.5  1.6  0.2  0.0  0.0            7.3</span></span></code></pre></div>
 </div>
-<div id="understanding-the-output" class="section level3">
-<h3>Understanding the Output</h3>
-<p>The summary table contains four key sections:</p>
-<ol style="list-style-type: decimal">
-<li><strong>True Toxicity (%)</strong>: The actual DLT rate at each
-dose</li>
-<li><strong>MTD Selected (%)</strong>: Percentage of trials selecting
-each dose as MTD</li>
-<li><strong>Participants Treated (mean)</strong>: Average patient
-enrollment at each dose</li>
-<li><strong>Participants w/ DLTs (mean)</strong>: Average DLT counts at
-each dose</li>
-</ol>
+<div id="design-options" class="section level2">
+<h2>Design options</h2>
+<p>Five options change how the design behaves.</p>
+<p><code>titration = TRUE</code> treats one patient per dose until the
+first toxicity, which moves through safe doses quickly.</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a>safe_curve <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fl">0.01</span>, <span class="fl">0.02</span>, <span class="fl">0.05</span>, <span class="fl">0.12</span>, <span class="fl">0.30</span>)</span>
+<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a></span>
+<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a>plain <span class="ot">&lt;-</span> <span class="fu">sim_boin</span>(<span class="at">target =</span> <span class="fl">0.30</span>, <span class="at">p_true =</span> safe_curve, <span class="at">n_cohort =</span> <span class="dv">12</span>,</span>
+<span id="cb9-4"><a href="#cb9-4" tabindex="-1"></a>                  <span class="at">cohort_size =</span> <span class="dv">3</span>, <span class="at">n_trials =</span> <span class="dv">1000</span>, <span class="at">seed =</span> <span class="dv">1</span>)</span>
+<span id="cb9-5"><a href="#cb9-5" tabindex="-1"></a>titrated <span class="ot">&lt;-</span> <span class="fu">sim_boin</span>(<span class="at">target =</span> <span class="fl">0.30</span>, <span class="at">p_true =</span> safe_curve, <span class="at">n_cohort =</span> <span class="dv">12</span>,</span>
+<span id="cb9-6"><a href="#cb9-6" tabindex="-1"></a>                     <span class="at">cohort_size =</span> <span class="dv">3</span>, <span class="at">n_trials =</span> <span class="dv">1000</span>, <span class="at">titration =</span> <span class="cn">TRUE</span>, <span class="at">seed =</span> <span class="dv">1</span>)</span>
+<span id="cb9-7"><a href="#cb9-7" tabindex="-1"></a></span>
+<span id="cb9-8"><a href="#cb9-8" tabindex="-1"></a><span class="fu">rbind</span>(<span class="at">plain =</span> plain<span class="sc">$</span>n_pts_dose, <span class="at">titrated =</span> titrated<span class="sc">$</span>n_pts_dose)</span>
+<span id="cb9-9"><a href="#cb9-9" tabindex="-1"></a><span class="co">#&gt;            DL1   DL2   DL3   DL4    DL5</span></span>
+<span id="cb9-10"><a href="#cb9-10" tabindex="-1"></a><span class="co">#&gt; plain    3.099 3.285 3.888 8.136 14.976</span></span>
+<span id="cb9-11"><a href="#cb9-11" tabindex="-1"></a><span class="co">#&gt; titrated 1.063 1.164 1.736 7.516 15.997</span></span></code></pre></div>
+<p><code>extrasafe = TRUE</code> adds a stopping rule at the lowest dose
+that is easier to trigger than elimination, and
+<code>bound_mtd = TRUE</code> refuses to select a dose whose estimated
+toxicity exceeds the de-escalation boundary.</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a>toxic_curve <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fl">0.35</span>, <span class="fl">0.45</span>, <span class="fl">0.55</span>, <span class="fl">0.65</span>, <span class="fl">0.75</span>)</span>
+<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a></span>
+<span id="cb10-3"><a href="#cb10-3" tabindex="-1"></a><span class="fu">c</span>(</span>
+<span id="cb10-4"><a href="#cb10-4" tabindex="-1"></a>  <span class="at">plain =</span> <span class="fu">sim_boin</span>(<span class="at">target =</span> <span class="fl">0.30</span>, <span class="at">p_true =</span> toxic_curve, <span class="at">n_cohort =</span> <span class="dv">12</span>,</span>
+<span id="cb10-5"><a href="#cb10-5" tabindex="-1"></a>                   <span class="at">cohort_size =</span> <span class="dv">3</span>, <span class="at">n_trials =</span> <span class="dv">1000</span>, <span class="at">seed =</span> <span class="dv">2</span>)<span class="sc">$</span>percent_no_mtd,</span>
+<span id="cb10-6"><a href="#cb10-6" tabindex="-1"></a>  <span class="at">extrasafe =</span> <span class="fu">sim_boin</span>(<span class="at">target =</span> <span class="fl">0.30</span>, <span class="at">p_true =</span> toxic_curve, <span class="at">n_cohort =</span> <span class="dv">12</span>,</span>
+<span id="cb10-7"><a href="#cb10-7" tabindex="-1"></a>                       <span class="at">cohort_size =</span> <span class="dv">3</span>, <span class="at">n_trials =</span> <span class="dv">1000</span>, <span class="at">extrasafe =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb10-8"><a href="#cb10-8" tabindex="-1"></a>                       <span class="at">seed =</span> <span class="dv">2</span>)<span class="sc">$</span>percent_no_mtd</span>
+<span id="cb10-9"><a href="#cb10-9" tabindex="-1"></a>)</span>
+<span id="cb10-10"><a href="#cb10-10" tabindex="-1"></a><span class="co">#&gt;     plain extrasafe </span></span>
+<span id="cb10-11"><a href="#cb10-11" tabindex="-1"></a><span class="co">#&gt;      24.5      43.3</span></span></code></pre></div>
+<p><code>n_earlystop</code> stops a trial once the current dose has
+accrued this many patients and the design would stay there, which is
+taken as a sign that the algorithm has settled. It defaults to 18. Note
+that the reference implementation in the BOIN package defaults to 100,
+which effectively switches the rule off, so a comparison between the two
+should set it explicitly.</p>
+<p>For some target rates one DLT out of three patients de-escalates the
+dose, where the 3+3 design would stay.
+<code>stay_on_1_of_3 = TRUE</code> aligns the design with that practice
+by raising the de-escalation boundary at three patients, which changes
+one cell of the table and nothing else.</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a><span class="fu">c</span>(<span class="at">default =</span> <span class="fu">boin_decision_table</span>(<span class="fl">0.25</span>, <span class="dv">9</span>)[<span class="st">&quot;1&quot;</span>, <span class="st">&quot;3&quot;</span>],</span>
+<span id="cb11-2"><a href="#cb11-2" tabindex="-1"></a>  <span class="at">modified =</span> <span class="fu">boin_decision_table</span>(<span class="fl">0.25</span>, <span class="dv">9</span>, <span class="at">stay_on_1_of_3 =</span> <span class="cn">TRUE</span>)[<span class="st">&quot;1&quot;</span>, <span class="st">&quot;3&quot;</span>])</span>
+<span id="cb11-3"><a href="#cb11-3" tabindex="-1"></a><span class="co">#&gt;  default modified </span></span>
+<span id="cb11-4"><a href="#cb11-4" tabindex="-1"></a><span class="co">#&gt;      &quot;D&quot;      &quot;S&quot;</span></span></code></pre></div>
 </div>
-</div>
-<div id="boin-standard-implementation" class="section level2">
-<h2>BOIN Standard Implementation</h2>
-<p>For BOIN standard compliance, use the following recommended
-settings:</p>
-<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a>result_standard <span class="ot">&lt;-</span> <span class="fu">sim_boin</span>(</span>
-<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a>  <span class="at">n_trials =</span> <span class="dv">1000</span>,</span>
-<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a>  <span class="at">target =</span> <span class="fl">0.30</span>,</span>
-<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a>  <span class="at">p_true =</span> <span class="fu">c</span>(<span class="fl">0.10</span>, <span class="fl">0.25</span>, <span class="fl">0.40</span>, <span class="fl">0.55</span>, <span class="fl">0.70</span>),</span>
-<span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a>  <span class="at">n_cohort =</span> <span class="dv">10</span>,</span>
-<span id="cb4-6"><a href="#cb4-6" tabindex="-1"></a>  <span class="at">cohort_size =</span> <span class="dv">3</span>,</span>
-<span id="cb4-7"><a href="#cb4-7" tabindex="-1"></a>  <span class="at">boundMTD =</span> <span class="cn">TRUE</span>,              <span class="co"># Conservative MTD selection</span></span>
-<span id="cb4-8"><a href="#cb4-8" tabindex="-1"></a>  <span class="at">n_earlystop_rule =</span> <span class="st">&quot;with_stay&quot;</span>,  <span class="co"># Stop when converged</span></span>
-<span id="cb4-9"><a href="#cb4-9" tabindex="-1"></a>  <span class="at">seed =</span> <span class="dv">123</span></span>
-<span id="cb4-10"><a href="#cb4-10" tabindex="-1"></a>)</span>
-<span id="cb4-11"><a href="#cb4-11" tabindex="-1"></a></span>
-<span id="cb4-12"><a href="#cb4-12" tabindex="-1"></a><span class="fu">print</span>(result_standard<span class="sc">$</span>summary, <span class="at">scenario_name =</span> <span class="st">&quot;BOIN Standard&quot;</span>)</span>
-<span id="cb4-13"><a href="#cb4-13" tabindex="-1"></a><span class="co">#&gt; Scenario: BOIN Standard</span></span>
-<span id="cb4-14"><a href="#cb4-14" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb4-15"><a href="#cb4-15" tabindex="-1"></a><span class="co">#&gt; |         Metric|       DL1|       DL2|       DL3|       DL4|       DL5|Total/No MTD|</span></span>
-<span id="cb4-16"><a href="#cb4-16" tabindex="-1"></a><span class="co">#&gt; ---------------------------------------------------------------------------------- </span></span>
-<span id="cb4-17"><a href="#cb4-17" tabindex="-1"></a><span class="co">#&gt; |   True Tox (%)|      10.0|      25.0|      40.0|      55.0|      70.0|          |</span></span>
-<span id="cb4-18"><a href="#cb4-18" tabindex="-1"></a><span class="co">#&gt; |    MTD Sel (%)|      17.0|      55.8|      25.8|       1.2|       0.1|       0.1|</span></span>
-<span id="cb4-19"><a href="#cb4-19" tabindex="-1"></a><span class="co">#&gt; |        Avg Pts|       6.8|      11.9|       7.7|       1.8|       0.1|      28.4|</span></span>
-<span id="cb4-20"><a href="#cb4-20" tabindex="-1"></a><span class="co">#&gt; |       Avg DLTs|       0.7|       3.0|       3.1|       1.0|       0.1|       7.9|</span></span>
-<span id="cb4-21"><a href="#cb4-21" tabindex="-1"></a><span class="co">#&gt; ----------------------------------------------------------------------------------</span></span></code></pre></div>
-<div id="key-parameters" class="section level3">
-<h3>Key Parameters</h3>
-<ul>
-<li><strong><code>boundMTD = TRUE</code></strong>: Ensures selected
-MTD’s isotonic estimate is below the de-escalation boundary</li>
-<li><strong><code>n_earlystop_rule = &quot;with_stay&quot;</code></strong>: Stops
-trial when dose stays at n_earlystop threshold</li>
-</ul>
-</div>
-</div>
-<div id="safety-features" class="section level2">
-<h2>Safety Features</h2>
-<div id="extra-safety-stopping" class="section level3">
-<h3>Extra Safety Stopping</h3>
-<p>For scenarios with high toxicity uncertainty:</p>
-<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a>result_safe <span class="ot">&lt;-</span> <span class="fu">sim_boin</span>(</span>
-<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a>  <span class="at">n_trials =</span> <span class="dv">1000</span>,</span>
-<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a>  <span class="at">target =</span> <span class="fl">0.30</span>,</span>
-<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a>  <span class="at">p_true =</span> <span class="fu">c</span>(<span class="fl">0.05</span>, <span class="fl">0.10</span>, <span class="fl">0.20</span>, <span class="fl">0.30</span>, <span class="fl">0.45</span>),</span>
-<span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a>  <span class="at">n_cohort =</span> <span class="dv">10</span>,</span>
-<span id="cb5-6"><a href="#cb5-6" tabindex="-1"></a>  <span class="at">cohort_size =</span> <span class="dv">3</span>,</span>
-<span id="cb5-7"><a href="#cb5-7" tabindex="-1"></a>  <span class="at">extrasafe =</span> <span class="cn">TRUE</span>,  <span class="co"># Safety monitoring at lowest dose</span></span>
-<span id="cb5-8"><a href="#cb5-8" tabindex="-1"></a>  <span class="at">offset =</span> <span class="fl">0.05</span>,     <span class="co"># Safety cutoff adjustment</span></span>
-<span id="cb5-9"><a href="#cb5-9" tabindex="-1"></a>  <span class="at">seed =</span> <span class="dv">123</span></span>
-<span id="cb5-10"><a href="#cb5-10" tabindex="-1"></a>)</span>
-<span id="cb5-11"><a href="#cb5-11" tabindex="-1"></a></span>
-<span id="cb5-12"><a href="#cb5-12" tabindex="-1"></a><span class="fu">print</span>(result_safe<span class="sc">$</span>summary, <span class="at">scenario_name =</span> <span class="st">&quot;With Extra Safety&quot;</span>)</span>
-<span id="cb5-13"><a href="#cb5-13" tabindex="-1"></a><span class="co">#&gt; Scenario: With Extra Safety</span></span>
-<span id="cb5-14"><a href="#cb5-14" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb5-15"><a href="#cb5-15" tabindex="-1"></a><span class="co">#&gt; |         Metric|       DL1|       DL2|       DL3|       DL4|       DL5|Total/No MTD|</span></span>
-<span id="cb5-16"><a href="#cb5-16" tabindex="-1"></a><span class="co">#&gt; ---------------------------------------------------------------------------------- </span></span>
-<span id="cb5-17"><a href="#cb5-17" tabindex="-1"></a><span class="co">#&gt; |   True Tox (%)|       5.0|      10.0|      20.0|      30.0|      45.0|          |</span></span>
-<span id="cb5-18"><a href="#cb5-18" tabindex="-1"></a><span class="co">#&gt; |    MTD Sel (%)|       0.3|       5.1|      26.7|      48.4|      18.8|       0.7|</span></span>
-<span id="cb5-19"><a href="#cb5-19" tabindex="-1"></a><span class="co">#&gt; |        Avg Pts|       3.7|       5.4|       8.1|       8.2|       4.0|      29.5|</span></span>
-<span id="cb5-20"><a href="#cb5-20" tabindex="-1"></a><span class="co">#&gt; |       Avg DLTs|       0.2|       0.5|       1.6|       2.4|       1.8|       6.6|</span></span>
-<span id="cb5-21"><a href="#cb5-21" tabindex="-1"></a><span class="co">#&gt; ----------------------------------------------------------------------------------</span></span></code></pre></div>
-</div>
-<div id="maximum-conservatism" class="section level3">
-<h3>Maximum Conservatism</h3>
-<p>Combining all safety features:</p>
-<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a>result_conservative <span class="ot">&lt;-</span> <span class="fu">sim_boin</span>(</span>
-<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a>  <span class="at">n_trials =</span> <span class="dv">1000</span>,</span>
-<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a>  <span class="at">target =</span> <span class="fl">0.30</span>,</span>
-<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a>  <span class="at">p_true =</span> <span class="fu">seq</span>(<span class="fl">0.05</span>, <span class="fl">0.45</span>, <span class="at">by =</span> <span class="fl">0.05</span>),</span>
-<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a>  <span class="at">n_cohort =</span> <span class="dv">20</span>,</span>
-<span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a>  <span class="at">cohort_size =</span> <span class="dv">3</span>,</span>
-<span id="cb6-7"><a href="#cb6-7" tabindex="-1"></a>  <span class="at">extrasafe =</span> <span class="cn">TRUE</span>,</span>
-<span id="cb6-8"><a href="#cb6-8" tabindex="-1"></a>  <span class="at">boundMTD =</span> <span class="cn">TRUE</span>,</span>
-<span id="cb6-9"><a href="#cb6-9" tabindex="-1"></a>  <span class="at">n_earlystop_rule =</span> <span class="st">&quot;with_stay&quot;</span>,</span>
-<span id="cb6-10"><a href="#cb6-10" tabindex="-1"></a>  <span class="at">seed =</span> <span class="dv">123</span></span>
-<span id="cb6-11"><a href="#cb6-11" tabindex="-1"></a>)</span>
-<span id="cb6-12"><a href="#cb6-12" tabindex="-1"></a></span>
-<span id="cb6-13"><a href="#cb6-13" tabindex="-1"></a><span class="fu">print</span>(result_conservative<span class="sc">$</span>summary, <span class="at">scenario_name =</span> <span class="st">&quot;Maximum Conservatism&quot;</span>)</span>
-<span id="cb6-14"><a href="#cb6-14" tabindex="-1"></a><span class="co">#&gt; Scenario: Maximum Conservatism</span></span>
-<span id="cb6-15"><a href="#cb6-15" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb6-16"><a href="#cb6-16" tabindex="-1"></a><span class="co">#&gt; |         Metric|       DL1|       DL2|       DL3|       DL4|       DL5|       DL6|       DL7|       DL8|       DL9|Total/No MTD|</span></span>
-<span id="cb6-17"><a href="#cb6-17" tabindex="-1"></a><span class="co">#&gt; ------------------------------------------------------------------------------------------------------------------------------ </span></span>
-<span id="cb6-18"><a href="#cb6-18" tabindex="-1"></a><span class="co">#&gt; |   True Tox (%)|       5.0|      10.0|      15.0|      20.0|      25.0|      30.0|      35.0|      40.0|      45.0|          |</span></span>
-<span id="cb6-19"><a href="#cb6-19" tabindex="-1"></a><span class="co">#&gt; |    MTD Sel (%)|       0.3|       2.0|       7.0|      22.0|      25.5|      23.1|      13.0|       5.5|       0.9|       0.7|</span></span>
-<span id="cb6-20"><a href="#cb6-20" tabindex="-1"></a><span class="co">#&gt; |        Avg Pts|       3.7|       4.8|       6.2|       8.6|       8.8|       7.1|       4.3|       1.8|       0.4|      45.8|</span></span>
-<span id="cb6-21"><a href="#cb6-21" tabindex="-1"></a><span class="co">#&gt; |       Avg DLTs|       0.2|       0.5|       0.9|       1.7|       2.2|       2.1|       1.5|       0.7|       0.2|      10.1|</span></span>
-<span id="cb6-22"><a href="#cb6-22" tabindex="-1"></a><span class="co">#&gt; ------------------------------------------------------------------------------------------------------------------------------</span></span></code></pre></div>
-</div>
-</div>
-<div id="multi-scenario-simulations" class="section level2">
-<h2>Multi-Scenario Simulations</h2>
-<p>Evaluate multiple dose-toxicity scenarios simultaneously:</p>
-<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="co"># Define multiple scenarios</span></span>
-<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a>scenarios <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
-<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a>  <span class="fu">list</span>(<span class="at">name =</span> <span class="st">&quot;Scenario 1: MTD at DL3&quot;</span>, </span>
-<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a>       <span class="at">p_true =</span> <span class="fu">c</span>(<span class="fl">0.05</span>, <span class="fl">0.10</span>, <span class="fl">0.20</span>, <span class="fl">0.30</span>, <span class="fl">0.45</span>)),</span>
-<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a>  <span class="fu">list</span>(<span class="at">name =</span> <span class="st">&quot;Scenario 2: MTD at DL4&quot;</span>, </span>
-<span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a>       <span class="at">p_true =</span> <span class="fu">c</span>(<span class="fl">0.10</span>, <span class="fl">0.15</span>, <span class="fl">0.25</span>, <span class="fl">0.30</span>, <span class="fl">0.45</span>)),</span>
-<span id="cb7-7"><a href="#cb7-7" tabindex="-1"></a>  <span class="fu">list</span>(<span class="at">name =</span> <span class="st">&quot;Scenario 3: All doses safe&quot;</span>, </span>
-<span id="cb7-8"><a href="#cb7-8" tabindex="-1"></a>       <span class="at">p_true =</span> <span class="fu">c</span>(<span class="fl">0.05</span>, <span class="fl">0.10</span>, <span class="fl">0.15</span>, <span class="fl">0.20</span>, <span class="fl">0.25</span>))</span>
-<span id="cb7-9"><a href="#cb7-9" tabindex="-1"></a>)</span>
-<span id="cb7-10"><a href="#cb7-10" tabindex="-1"></a></span>
-<span id="cb7-11"><a href="#cb7-11" tabindex="-1"></a><span class="co"># Run multi-scenario simulation</span></span>
-<span id="cb7-12"><a href="#cb7-12" tabindex="-1"></a>result_multi <span class="ot">&lt;-</span> <span class="fu">sim_boin_multi</span>(</span>
-<span id="cb7-13"><a href="#cb7-13" tabindex="-1"></a>  <span class="at">scenarios =</span> scenarios,</span>
-<span id="cb7-14"><a href="#cb7-14" tabindex="-1"></a>  <span class="at">target =</span> <span class="fl">0.30</span>,</span>
-<span id="cb7-15"><a href="#cb7-15" tabindex="-1"></a>  <span class="at">n_trials =</span> <span class="dv">1000</span>,</span>
-<span id="cb7-16"><a href="#cb7-16" tabindex="-1"></a>  <span class="at">n_cohort =</span> <span class="dv">10</span>,</span>
-<span id="cb7-17"><a href="#cb7-17" tabindex="-1"></a>  <span class="at">cohort_size =</span> <span class="dv">3</span>,</span>
-<span id="cb7-18"><a href="#cb7-18" tabindex="-1"></a>  <span class="at">seed =</span> <span class="dv">123</span></span>
-<span id="cb7-19"><a href="#cb7-19" tabindex="-1"></a>)</span></code></pre></div>
-<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a><span class="co"># Display aggregated results</span></span>
-<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a><span class="fu">print</span>(result_multi)</span>
-<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a><span class="co">#&gt;                    Scenario         Item DL1  DL2  DL3  DL4  DL5 Total/No MTD</span></span>
-<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a><span class="co">#&gt;      Scenario 1: MTD at DL3 True Tox (%)   5   10   20   30   45             </span></span>
-<span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a><span class="co">#&gt;                              MTD Sel (%) 0.2    5 27.9 48.4 18.4          0.1</span></span>
-<span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a><span class="co">#&gt;                                  Avg Pts 3.9  5.5  8.2  8.1    4         29.7</span></span>
-<span id="cb8-7"><a href="#cb8-7" tabindex="-1"></a><span class="co">#&gt;                                 Avg DLTs 0.2  0.5  1.6  2.4  1.8          6.6</span></span>
-<span id="cb8-8"><a href="#cb8-8" tabindex="-1"></a><span class="co">#&gt;      Scenario 2: MTD at DL4 True Tox (%)  10   15   25   30   45             </span></span>
-<span id="cb8-9"><a href="#cb8-9" tabindex="-1"></a><span class="co">#&gt;                              MTD Sel (%)   2 12.6 32.6 37.4 15.2          0.2</span></span>
-<span id="cb8-10"><a href="#cb8-10" tabindex="-1"></a><span class="co">#&gt;                                  Avg Pts 4.8  6.9  8.5    6  3.2         29.3</span></span>
-<span id="cb8-11"><a href="#cb8-11" tabindex="-1"></a><span class="co">#&gt;                                 Avg DLTs 0.5    1  2.1  1.8  1.4          6.8</span></span>
-<span id="cb8-12"><a href="#cb8-12" tabindex="-1"></a><span class="co">#&gt;  Scenario 3: All doses safe True Tox (%)   5   10   15   20   25             </span></span>
-<span id="cb8-13"><a href="#cb8-13" tabindex="-1"></a><span class="co">#&gt;                              MTD Sel (%) 0.8  2.3 12.2 22.6 62.1            0</span></span>
-<span id="cb8-14"><a href="#cb8-14" tabindex="-1"></a><span class="co">#&gt;                                  Avg Pts 3.7  4.9  6.2  6.3  8.7         29.8</span></span>
-<span id="cb8-15"><a href="#cb8-15" tabindex="-1"></a><span class="co">#&gt;                                 Avg DLTs 0.2  0.5  0.9  1.3  2.2          5.1</span></span></code></pre></div>
-</div>
-<div id="output-formatting-options" class="section level2">
-<h2>Output Formatting Options</h2>
-<div id="percentage-format" class="section level3">
-<h3>Percentage Format</h3>
-<p>Display values as percentages instead of absolute numbers:</p>
-<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a><span class="fu">print</span>(result<span class="sc">$</span>summary, <span class="at">percent =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a><span class="co">#&gt; |         Metric|       DL1|       DL2|       DL3|       DL4|       DL5|Total/No MTD|</span></span>
-<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a><span class="co">#&gt; ---------------------------------------------------------------------------------- </span></span>
-<span id="cb9-4"><a href="#cb9-4" tabindex="-1"></a><span class="co">#&gt; |   True Tox (%)|      10.0|      25.0|      40.0|      55.0|      70.0|          |</span></span>
-<span id="cb9-5"><a href="#cb9-5" tabindex="-1"></a><span class="co">#&gt; |    MTD Sel (%)|      10.8|      52.4|      33.8|       2.8|       0.1|       0.1|</span></span>
-<span id="cb9-6"><a href="#cb9-6" tabindex="-1"></a><span class="co">#&gt; |    Avg Pts (%)|      24.0|      41.9|      27.2|       6.5|       0.5|      28.4|</span></span>
-<span id="cb9-7"><a href="#cb9-7" tabindex="-1"></a><span class="co">#&gt; |   Avg DLTs (%)|       8.6|      38.1|      39.0|      13.2|       1.1|       7.9|</span></span>
-<span id="cb9-8"><a href="#cb9-8" tabindex="-1"></a><span class="co">#&gt; ----------------------------------------------------------------------------------</span></span></code></pre></div>
-</div>
-<div id="markdown-table-format" class="section level3">
-<h3>Markdown Table Format</h3>
-<p>For R Markdown documents:</p>
-<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a><span class="fu">print</span>(result<span class="sc">$</span>summary, <span class="at">kable =</span> <span class="cn">TRUE</span>, <span class="at">kable_format =</span> <span class="st">&quot;pipe&quot;</span>)</span>
-<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb10-3"><a href="#cb10-3" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb10-4"><a href="#cb10-4" tabindex="-1"></a><span class="co">#&gt; |Item         |DL1  |DL2  |DL3  |DL4 |DL5 |Total/No MTD |</span></span>
-<span id="cb10-5"><a href="#cb10-5" tabindex="-1"></a><span class="co">#&gt; |:------------|:----|:----|:----|:---|:---|:------------|</span></span>
-<span id="cb10-6"><a href="#cb10-6" tabindex="-1"></a><span class="co">#&gt; |True Tox (%) |10   |25   |40   |55  |70  |             |</span></span>
-<span id="cb10-7"><a href="#cb10-7" tabindex="-1"></a><span class="co">#&gt; |MTD Sel (%)  |10.8 |52.4 |33.8 |2.8 |0.1 |0.1          |</span></span>
-<span id="cb10-8"><a href="#cb10-8" tabindex="-1"></a><span class="co">#&gt; |Avg Pts      |6.8  |11.9 |7.7  |1.8 |0.1 |28.4         |</span></span>
-<span id="cb10-9"><a href="#cb10-9" tabindex="-1"></a><span class="co">#&gt; |Avg DLTs     |0.7  |3    |3.1  |1   |0.1 |7.9          |</span></span></code></pre></div>
-</div>
-<div id="html-format" class="section level3">
-<h3>HTML Format</h3>
-<p>For web-based reports:</p>
-<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a><span class="fu">print</span>(result<span class="sc">$</span>summary, <span class="at">kable =</span> <span class="cn">TRUE</span>, <span class="at">kable_format =</span> <span class="st">&quot;html&quot;</span>)</span></code></pre></div>
-</div>
-</div>
-<div id="accessing-detailed-results" class="section level2">
-<h2>Accessing Detailed Results</h2>
-<p>When <code>return_details = TRUE</code>, you can access trial-level
-information:</p>
-<div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" tabindex="-1"></a>result_detailed <span class="ot">&lt;-</span> <span class="fu">sim_boin</span>(</span>
-<span id="cb12-2"><a href="#cb12-2" tabindex="-1"></a>  <span class="at">n_trials =</span> <span class="dv">100</span>,</span>
-<span id="cb12-3"><a href="#cb12-3" tabindex="-1"></a>  <span class="at">target =</span> <span class="fl">0.30</span>,</span>
-<span id="cb12-4"><a href="#cb12-4" tabindex="-1"></a>  <span class="at">p_true =</span> <span class="fu">c</span>(<span class="fl">0.10</span>, <span class="fl">0.25</span>, <span class="fl">0.40</span>, <span class="fl">0.55</span>, <span class="fl">0.70</span>),</span>
-<span id="cb12-5"><a href="#cb12-5" tabindex="-1"></a>  <span class="at">n_cohort =</span> <span class="dv">10</span>,</span>
-<span id="cb12-6"><a href="#cb12-6" tabindex="-1"></a>  <span class="at">cohort_size =</span> <span class="dv">3</span>,</span>
-<span id="cb12-7"><a href="#cb12-7" tabindex="-1"></a>  <span class="at">return_details =</span> <span class="cn">TRUE</span>,</span>
-<span id="cb12-8"><a href="#cb12-8" tabindex="-1"></a>  <span class="at">seed =</span> <span class="dv">123</span></span>
-<span id="cb12-9"><a href="#cb12-9" tabindex="-1"></a>)</span>
-<span id="cb12-10"><a href="#cb12-10" tabindex="-1"></a></span>
-<span id="cb12-11"><a href="#cb12-11" tabindex="-1"></a><span class="co"># Check first trial</span></span>
-<span id="cb12-12"><a href="#cb12-12" tabindex="-1"></a>trial_1 <span class="ot">&lt;-</span> result_detailed<span class="sc">$</span>detailed_results[[<span class="dv">1</span>]]</span>
-<span id="cb12-13"><a href="#cb12-13" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;Trial 1 MTD:&quot;</span>, trial_1<span class="sc">$</span>mtd, <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
-<span id="cb12-14"><a href="#cb12-14" tabindex="-1"></a><span class="co">#&gt; Trial 1 MTD: 2</span></span>
-<span id="cb12-15"><a href="#cb12-15" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;Trial 1 stopping reason:&quot;</span>, trial_1<span class="sc">$</span>reason, <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
-<span id="cb12-16"><a href="#cb12-16" tabindex="-1"></a><span class="co">#&gt; Trial 1 stopping reason: trial_completed</span></span>
-<span id="cb12-17"><a href="#cb12-17" tabindex="-1"></a></span>
-<span id="cb12-18"><a href="#cb12-18" tabindex="-1"></a><span class="co"># Summary of stopping reasons</span></span>
-<span id="cb12-19"><a href="#cb12-19" tabindex="-1"></a>stopping_reasons <span class="ot">&lt;-</span> <span class="fu">table</span>(<span class="fu">sapply</span>(result_detailed<span class="sc">$</span>detailed_results, </span>
-<span id="cb12-20"><a href="#cb12-20" tabindex="-1"></a>                                <span class="cf">function</span>(x) x<span class="sc">$</span>reason))</span>
-<span id="cb12-21"><a href="#cb12-21" tabindex="-1"></a><span class="fu">print</span>(stopping_reasons)</span>
+<div id="working-with-the-trial-data" class="section level2">
+<h2>Working with the trial data</h2>
+<p><code>boin_simulate()</code> returns the raw counts, which is useful
+when a summary other than the built-in one is needed.</p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" tabindex="-1"></a>trials <span class="ot">&lt;-</span> <span class="fu">boin_simulate</span>(</span>
+<span id="cb12-2"><a href="#cb12-2" tabindex="-1"></a>  <span class="at">target =</span> <span class="fl">0.30</span>,</span>
+<span id="cb12-3"><a href="#cb12-3" tabindex="-1"></a>  <span class="at">p_true =</span> <span class="fu">c</span>(<span class="fl">0.05</span>, <span class="fl">0.15</span>, <span class="fl">0.30</span>, <span class="fl">0.45</span>, <span class="fl">0.60</span>),</span>
+<span id="cb12-4"><a href="#cb12-4" tabindex="-1"></a>  <span class="at">n_cohort =</span> <span class="dv">10</span>,</span>
+<span id="cb12-5"><a href="#cb12-5" tabindex="-1"></a>  <span class="at">cohort_size =</span> <span class="dv">3</span>,</span>
+<span id="cb12-6"><a href="#cb12-6" tabindex="-1"></a>  <span class="at">n_trials =</span> <span class="dv">1000</span>,</span>
+<span id="cb12-7"><a href="#cb12-7" tabindex="-1"></a>  <span class="at">seed =</span> <span class="dv">123</span></span>
+<span id="cb12-8"><a href="#cb12-8" tabindex="-1"></a>)</span>
+<span id="cb12-9"><a href="#cb12-9" tabindex="-1"></a></span>
+<span id="cb12-10"><a href="#cb12-10" tabindex="-1"></a>trials</span>
+<span id="cb12-11"><a href="#cb12-11" tabindex="-1"></a><span class="co">#&gt; Simulated BOIN trials</span></span>
+<span id="cb12-12"><a href="#cb12-12" tabindex="-1"></a><span class="co">#&gt;   trials          : 1000</span></span>
+<span id="cb12-13"><a href="#cb12-13" tabindex="-1"></a><span class="co">#&gt;   doses           : 5</span></span>
+<span id="cb12-14"><a href="#cb12-14" tabindex="-1"></a><span class="co">#&gt;   target DLT rate : 0.3</span></span>
+<span id="cb12-15"><a href="#cb12-15" tabindex="-1"></a><span class="co">#&gt;   cohorts         : 10 of size 3</span></span>
+<span id="cb12-16"><a href="#cb12-16" tabindex="-1"></a><span class="co">#&gt;   max sample size : 30</span></span>
+<span id="cb12-17"><a href="#cb12-17" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb12-18"><a href="#cb12-18" tabindex="-1"></a><span class="co">#&gt; Average per trial:</span></span>
+<span id="cb12-19"><a href="#cb12-19" tabindex="-1"></a><span class="co">#&gt;                   DL1  DL2   DL3  DL4  DL5</span></span>
+<span id="cb12-20"><a href="#cb12-20" tabindex="-1"></a><span class="co">#&gt; Patients treated 4.17 8.90 10.78 4.49 0.77</span></span>
+<span id="cb12-21"><a href="#cb12-21" tabindex="-1"></a><span class="co">#&gt; DLTs observed    0.22 1.37  3.21 2.05 0.46</span></span>
 <span id="cb12-22"><a href="#cb12-22" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb12-23"><a href="#cb12-23" tabindex="-1"></a><span class="co">#&gt; trial_completed </span></span>
-<span id="cb12-24"><a href="#cb12-24" tabindex="-1"></a><span class="co">#&gt;             100</span></span></code></pre></div>
+<span id="cb12-23"><a href="#cb12-23" tabindex="-1"></a><span class="co">#&gt; Stopping reason (%):</span></span>
+<span id="cb12-24"><a href="#cb12-24" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb12-25"><a href="#cb12-25" tabindex="-1"></a><span class="co">#&gt; lowest_dose_eliminated        max_sample_size            n_earlystop </span></span>
+<span id="cb12-26"><a href="#cb12-26" tabindex="-1"></a><span class="co">#&gt;                    0.1                   79.3                   20.6</span></span></code></pre></div>
+<p>The MTD selection rule can then be applied separately, which makes it
+possible to compare selection rules on one set of simulated trials.</p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" tabindex="-1"></a>free <span class="ot">&lt;-</span> <span class="fu">boin_select_mtd</span>(trials<span class="sc">$</span>n_pts, trials<span class="sc">$</span>n_tox, <span class="at">target =</span> <span class="fl">0.30</span>)</span>
+<span id="cb13-2"><a href="#cb13-2" tabindex="-1"></a>bounded <span class="ot">&lt;-</span> <span class="fu">boin_select_mtd</span>(trials<span class="sc">$</span>n_pts, trials<span class="sc">$</span>n_tox, <span class="at">target =</span> <span class="fl">0.30</span>,</span>
+<span id="cb13-3"><a href="#cb13-3" tabindex="-1"></a>                           <span class="at">bound_mtd =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb13-4"><a href="#cb13-4" tabindex="-1"></a></span>
+<span id="cb13-5"><a href="#cb13-5" tabindex="-1"></a><span class="fu">table</span>(free<span class="sc">$</span>mtd, bounded<span class="sc">$</span>mtd, <span class="at">useNA =</span> <span class="st">&quot;ifany&quot;</span>)</span>
+<span id="cb13-6"><a href="#cb13-6" tabindex="-1"></a><span class="co">#&gt;       </span></span>
+<span id="cb13-7"><a href="#cb13-7" tabindex="-1"></a><span class="co">#&gt;          1   2   3   4   5 &lt;NA&gt;</span></span>
+<span id="cb13-8"><a href="#cb13-8" tabindex="-1"></a><span class="co">#&gt;   1     12   0   0   0   0    0</span></span>
+<span id="cb13-9"><a href="#cb13-9" tabindex="-1"></a><span class="co">#&gt;   2      4 242   0   0   0    0</span></span>
+<span id="cb13-10"><a href="#cb13-10" tabindex="-1"></a><span class="co">#&gt;   3      0  92 449   0   0    0</span></span>
+<span id="cb13-11"><a href="#cb13-11" tabindex="-1"></a><span class="co">#&gt;   4      0   0  60 125   0    0</span></span>
+<span id="cb13-12"><a href="#cb13-12" tabindex="-1"></a><span class="co">#&gt;   5      0   0   0   7   8    0</span></span>
+<span id="cb13-13"><a href="#cb13-13" tabindex="-1"></a><span class="co">#&gt;   &lt;NA&gt;   0   0   0   0   0    1</span></span></code></pre></div>
+<p>The estimated dose-toxicity curve behind those decisions is available
+on its own.</p>
+<div class="sourceCode" id="cb14"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" tabindex="-1"></a><span class="fu">round</span>(<span class="fu">boin_isotonic</span>(trials<span class="sc">$</span>n_pts[<span class="dv">1</span><span class="sc">:</span><span class="dv">5</span>, ], trials<span class="sc">$</span>n_tox[<span class="dv">1</span><span class="sc">:</span><span class="dv">5</span>, ]), <span class="dv">3</span>)</span>
+<span id="cb14-2"><a href="#cb14-2" tabindex="-1"></a><span class="co">#&gt;        DL1   DL2   DL3   DL4   DL5</span></span>
+<span id="cb14-3"><a href="#cb14-3" tabindex="-1"></a><span class="co">#&gt; [1,] 0.016 0.017 0.017 0.334    NA</span></span>
+<span id="cb14-4"><a href="#cb14-4" tabindex="-1"></a><span class="co">#&gt; [2,] 0.016 0.224 0.664    NA    NA</span></span>
+<span id="cb14-5"><a href="#cb14-5" tabindex="-1"></a><span class="co">#&gt; [3,] 0.016 0.172 0.225 0.500    NA</span></span>
+<span id="cb14-6"><a href="#cb14-6" tabindex="-1"></a><span class="co">#&gt; [4,] 0.016 0.172 0.172 0.172 0.445</span></span>
+<span id="cb14-7"><a href="#cb14-7" tabindex="-1"></a><span class="co">#&gt; [5,] 0.016 0.058 0.664    NA    NA</span></span></code></pre></div>
 </div>
-<div id="design-comparison" class="section level2">
-<h2>Design Comparison</h2>
-<p>Compare different safety configurations:</p>
-<div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" tabindex="-1"></a><span class="co"># Baseline</span></span>
-<span id="cb13-2"><a href="#cb13-2" tabindex="-1"></a>result_baseline <span class="ot">&lt;-</span> <span class="fu">sim_boin</span>(</span>
-<span id="cb13-3"><a href="#cb13-3" tabindex="-1"></a>  <span class="at">n_trials =</span> <span class="dv">1000</span>,</span>
-<span id="cb13-4"><a href="#cb13-4" tabindex="-1"></a>  <span class="at">target =</span> <span class="fl">0.30</span>,</span>
-<span id="cb13-5"><a href="#cb13-5" tabindex="-1"></a>  <span class="at">p_true =</span> <span class="fu">c</span>(<span class="fl">0.05</span>, <span class="fl">0.10</span>, <span class="fl">0.20</span>, <span class="fl">0.30</span>, <span class="fl">0.45</span>, <span class="fl">0.60</span>),</span>
-<span id="cb13-6"><a href="#cb13-6" tabindex="-1"></a>  <span class="at">n_cohort =</span> <span class="dv">20</span>,</span>
-<span id="cb13-7"><a href="#cb13-7" tabindex="-1"></a>  <span class="at">cohort_size =</span> <span class="dv">3</span>,</span>
-<span id="cb13-8"><a href="#cb13-8" tabindex="-1"></a>  <span class="at">seed =</span> <span class="dv">123</span></span>
-<span id="cb13-9"><a href="#cb13-9" tabindex="-1"></a>)</span>
-<span id="cb13-10"><a href="#cb13-10" tabindex="-1"></a></span>
-<span id="cb13-11"><a href="#cb13-11" tabindex="-1"></a><span class="co"># With boundMTD</span></span>
-<span id="cb13-12"><a href="#cb13-12" tabindex="-1"></a>result_boundMTD <span class="ot">&lt;-</span> <span class="fu">sim_boin</span>(</span>
-<span id="cb13-13"><a href="#cb13-13" tabindex="-1"></a>  <span class="at">n_trials =</span> <span class="dv">1000</span>,</span>
-<span id="cb13-14"><a href="#cb13-14" tabindex="-1"></a>  <span class="at">target =</span> <span class="fl">0.30</span>,</span>
-<span id="cb13-15"><a href="#cb13-15" tabindex="-1"></a>  <span class="at">p_true =</span> <span class="fu">c</span>(<span class="fl">0.05</span>, <span class="fl">0.10</span>, <span class="fl">0.20</span>, <span class="fl">0.30</span>, <span class="fl">0.45</span>, <span class="fl">0.60</span>),</span>
-<span id="cb13-16"><a href="#cb13-16" tabindex="-1"></a>  <span class="at">n_cohort =</span> <span class="dv">20</span>,</span>
-<span id="cb13-17"><a href="#cb13-17" tabindex="-1"></a>  <span class="at">cohort_size =</span> <span class="dv">3</span>,</span>
-<span id="cb13-18"><a href="#cb13-18" tabindex="-1"></a>  <span class="at">boundMTD =</span> <span class="cn">TRUE</span>,</span>
-<span id="cb13-19"><a href="#cb13-19" tabindex="-1"></a>  <span class="at">seed =</span> <span class="dv">123</span></span>
-<span id="cb13-20"><a href="#cb13-20" tabindex="-1"></a>)</span>
-<span id="cb13-21"><a href="#cb13-21" tabindex="-1"></a></span>
-<span id="cb13-22"><a href="#cb13-22" tabindex="-1"></a><span class="co"># Create comparison</span></span>
-<span id="cb13-23"><a href="#cb13-23" tabindex="-1"></a>comparison <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
-<span id="cb13-24"><a href="#cb13-24" tabindex="-1"></a>  <span class="at">Setting =</span> <span class="fu">c</span>(<span class="st">&quot;Baseline&quot;</span>, <span class="st">&quot;boundMTD&quot;</span>),</span>
-<span id="cb13-25"><a href="#cb13-25" tabindex="-1"></a>  <span class="at">Avg_Patients =</span> <span class="fu">c</span>(</span>
-<span id="cb13-26"><a href="#cb13-26" tabindex="-1"></a>    result_baseline<span class="sc">$</span>summary<span class="sc">$</span>avg_total_n_pts,</span>
-<span id="cb13-27"><a href="#cb13-27" tabindex="-1"></a>    result_boundMTD<span class="sc">$</span>summary<span class="sc">$</span>avg_total_n_pts</span>
-<span id="cb13-28"><a href="#cb13-28" tabindex="-1"></a>  ),</span>
-<span id="cb13-29"><a href="#cb13-29" tabindex="-1"></a>  <span class="at">MTD_Selection_at_DL4 =</span> <span class="fu">c</span>(</span>
-<span id="cb13-30"><a href="#cb13-30" tabindex="-1"></a>    result_baseline<span class="sc">$</span>summary<span class="sc">$</span>mtd_selection_percent[<span class="dv">4</span>],</span>
-<span id="cb13-31"><a href="#cb13-31" tabindex="-1"></a>    result_boundMTD<span class="sc">$</span>summary<span class="sc">$</span>mtd_selection_percent[<span class="dv">4</span>]</span>
-<span id="cb13-32"><a href="#cb13-32" tabindex="-1"></a>  )</span>
-<span id="cb13-33"><a href="#cb13-33" tabindex="-1"></a>)</span>
-<span id="cb13-34"><a href="#cb13-34" tabindex="-1"></a></span>
-<span id="cb13-35"><a href="#cb13-35" tabindex="-1"></a><span class="fu">print</span>(comparison)</span>
-<span id="cb13-36"><a href="#cb13-36" tabindex="-1"></a><span class="co">#&gt;    Setting Avg_Patients MTD_Selection_at_DL4</span></span>
-<span id="cb13-37"><a href="#cb13-37" tabindex="-1"></a><span class="co">#&gt; 1 Baseline       40.842                 52.5</span></span>
-<span id="cb13-38"><a href="#cb13-38" tabindex="-1"></a><span class="co">#&gt; 2 boundMTD       40.842                 52.3</span></span></code></pre></div>
+<div id="comparing-with-the-33-design" class="section level2">
+<h2>Comparing with the 3+3 design</h2>
+<p><code>oc_3p3()</code> gives the operating characteristics of the
+traditional 3+3 design. The probability of every path the design can
+take is evaluated in closed form, so the result carries no Monte Carlo
+error and takes no seed.</p>
+<div class="sourceCode" id="cb15"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" tabindex="-1"></a><span class="fu">oc_3p3</span>(<span class="at">p_true =</span> <span class="fu">c</span>(<span class="fl">0.05</span>, <span class="fl">0.15</span>, <span class="fl">0.25</span>, <span class="fl">0.45</span>, <span class="fl">0.60</span>))</span>
+<span id="cb15-2"><a href="#cb15-2" tabindex="-1"></a><span class="co">#&gt; 3+3 operating characteristics</span></span>
+<span id="cb15-3"><a href="#cb15-3" tabindex="-1"></a><span class="co">#&gt;   MTD rule        : previous (dose below the toxic one)</span></span>
+<span id="cb15-4"><a href="#cb15-4" tabindex="-1"></a><span class="co">#&gt;   obtained by     : exact enumeration</span></span>
+<span id="cb15-5"><a href="#cb15-5" tabindex="-1"></a><span class="co">#&gt;   start dose      : DL1</span></span>
+<span id="cb15-6"><a href="#cb15-6" tabindex="-1"></a><span class="co">#&gt;   max sample size : 30 (six per dose)</span></span>
+<span id="cb15-7"><a href="#cb15-7" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb15-8"><a href="#cb15-8" tabindex="-1"></a><span class="co">#&gt;                    DL1  DL2  DL3  DL4  DL5 Total / No MTD</span></span>
+<span id="cb15-9"><a href="#cb15-9" tabindex="-1"></a><span class="co">#&gt; True DLT rate (%)  5.0 15.0 25.0 45.0 60.0               </span></span>
+<span id="cb15-10"><a href="#cb15-10" tabindex="-1"></a><span class="co">#&gt; MTD selected (%)  18.1 31.7 36.4 10.2  0.9            2.7</span></span>
+<span id="cb15-11"><a href="#cb15-11" tabindex="-1"></a><span class="co">#&gt; Patients treated   3.4  3.9  3.4  2.0  0.4           13.1</span></span>
+<span id="cb15-12"><a href="#cb15-12" tabindex="-1"></a><span class="co">#&gt; Patients with DLT  0.2  0.6  0.8  0.9  0.3            2.8</span></span>
+<span id="cb15-13"><a href="#cb15-13" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb15-14"><a href="#cb15-14" tabindex="-1"></a><span class="co">#&gt; Doses above a true DLT rate of 0.3333: DL4, DL5</span></span>
+<span id="cb15-15"><a href="#cb15-15" tabindex="-1"></a><span class="co">#&gt;   Patients treated there              : 18.6%</span></span>
+<span id="cb15-16"><a href="#cb15-16" tabindex="-1"></a><span class="co">#&gt;   Trials treating any patient there   : 47.5%</span></span>
+<span id="cb15-17"><a href="#cb15-17" tabindex="-1"></a><span class="co">#&gt;   Trials selecting an MTD there       : 11.1%</span></span></code></pre></div>
+<p>Two definitions of the MTD are in common use and
+<code>mtd_rule</code> chooses between them. The default,
+<code>&quot;previous&quot;</code>, names the dose below the one declared too
+toxic. The other takes the MTD to be the highest dose at which at most
+one of six patients had a DLT, expanding a dose that has only three
+patients before assessing it.</p>
+<div class="sourceCode" id="cb16"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" tabindex="-1"></a>expanded <span class="ot">&lt;-</span> <span class="fu">oc_3p3</span>(<span class="at">p_true =</span> <span class="fu">c</span>(<span class="fl">0.05</span>, <span class="fl">0.15</span>, <span class="fl">0.25</span>, <span class="fl">0.45</span>, <span class="fl">0.60</span>),</span>
+<span id="cb16-2"><a href="#cb16-2" tabindex="-1"></a>                   <span class="at">mtd_rule =</span> <span class="st">&quot;expand&quot;</span>)</span>
+<span id="cb16-3"><a href="#cb16-3" tabindex="-1"></a></span>
+<span id="cb16-4"><a href="#cb16-4" tabindex="-1"></a><span class="fu">round</span>(expanded<span class="sc">$</span>sel_percent, <span class="dv">1</span>)</span>
+<span id="cb16-5"><a href="#cb16-5" tabindex="-1"></a><span class="co">#&gt; [1] 19.7 34.4 35.3  7.5  0.5</span></span>
+<span id="cb16-6"><a href="#cb16-6" tabindex="-1"></a><span class="fu">round</span>(expanded<span class="sc">$</span>total_n_pts, <span class="dv">2</span>)</span>
+<span id="cb16-7"><a href="#cb16-7" tabindex="-1"></a><span class="co">#&gt; [1] 15.52</span></span></code></pre></div>
+<p>The components of the result carry the same names as those of
+<code>sim_boin()</code>, so the same code can tabulate either design.
+<code>sim_3p3()</code> simulates the same design and exists to confirm
+the closed form rather than to obtain the numbers.</p>
 </div>
-<div id="performance-benchmarking" class="section level2">
-<h2>Performance Benchmarking</h2>
-<p>simFastBOIN is optimized for speed:</p>
-<div class="sourceCode" id="cb14"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" tabindex="-1"></a><span class="co"># Benchmark with 10,000 trials</span></span>
-<span id="cb14-2"><a href="#cb14-2" tabindex="-1"></a><span class="fu">system.time</span>({</span>
-<span id="cb14-3"><a href="#cb14-3" tabindex="-1"></a>  result_large <span class="ot">&lt;-</span> <span class="fu">sim_boin</span>(</span>
-<span id="cb14-4"><a href="#cb14-4" tabindex="-1"></a>    <span class="at">n_trials =</span> <span class="dv">10000</span>,</span>
-<span id="cb14-5"><a href="#cb14-5" tabindex="-1"></a>    <span class="at">target =</span> <span class="fl">0.30</span>,</span>
-<span id="cb14-6"><a href="#cb14-6" tabindex="-1"></a>    <span class="at">p_true =</span> <span class="fu">seq</span>(<span class="fl">0.05</span>, <span class="fl">0.45</span>, <span class="at">by =</span> <span class="fl">0.05</span>),</span>
-<span id="cb14-7"><a href="#cb14-7" tabindex="-1"></a>    <span class="at">n_cohort =</span> <span class="dv">48</span>,</span>
-<span id="cb14-8"><a href="#cb14-8" tabindex="-1"></a>    <span class="at">cohort_size =</span> <span class="dv">3</span>,</span>
-<span id="cb14-9"><a href="#cb14-9" tabindex="-1"></a>    <span class="at">seed =</span> <span class="dv">123</span></span>
-<span id="cb14-10"><a href="#cb14-10" tabindex="-1"></a>  )</span>
-<span id="cb14-11"><a href="#cb14-11" tabindex="-1"></a>})</span></code></pre></div>
-<p>Typical performance: - 1,000 trials: ~0.02 seconds - 10,000 trials:
-~0.25 seconds - 100,000 trials: ~2.7 seconds</p>
-</div>
-<div id="advanced-features" class="section level2">
-<h2>Advanced Features</h2>
-<div id="custom-cohort-sizes" class="section level3">
-<h3>Custom Cohort Sizes</h3>
-<p>Use variable cohort sizes:</p>
-<div class="sourceCode" id="cb15"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" tabindex="-1"></a>result_variable <span class="ot">&lt;-</span> <span class="fu">sim_boin</span>(</span>
-<span id="cb15-2"><a href="#cb15-2" tabindex="-1"></a>  <span class="at">n_trials =</span> <span class="dv">1000</span>,</span>
-<span id="cb15-3"><a href="#cb15-3" tabindex="-1"></a>  <span class="at">target =</span> <span class="fl">0.30</span>,</span>
-<span id="cb15-4"><a href="#cb15-4" tabindex="-1"></a>  <span class="at">p_true =</span> <span class="fu">c</span>(<span class="fl">0.10</span>, <span class="fl">0.25</span>, <span class="fl">0.40</span>, <span class="fl">0.55</span>, <span class="fl">0.70</span>),</span>
-<span id="cb15-5"><a href="#cb15-5" tabindex="-1"></a>  <span class="at">n_cohort =</span> <span class="dv">10</span>,</span>
-<span id="cb15-6"><a href="#cb15-6" tabindex="-1"></a>  <span class="at">cohort_size =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">3</span>, <span class="dv">3</span>, <span class="dv">3</span>, <span class="dv">3</span>, <span class="dv">3</span>, <span class="dv">3</span>, <span class="dv">3</span>, <span class="dv">3</span>, <span class="dv">3</span>),  <span class="co"># First cohort: 1 patient</span></span>
-<span id="cb15-7"><a href="#cb15-7" tabindex="-1"></a>  <span class="at">seed =</span> <span class="dv">123</span></span>
-<span id="cb15-8"><a href="#cb15-8" tabindex="-1"></a>)</span></code></pre></div>
-</div>
-<div id="titration-phase" class="section level3">
-<h3>Titration Phase</h3>
-<p>Enable accelerated dose escalation:</p>
-<div class="sourceCode" id="cb16"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" tabindex="-1"></a>result_titration <span class="ot">&lt;-</span> <span class="fu">sim_boin</span>(</span>
-<span id="cb16-2"><a href="#cb16-2" tabindex="-1"></a>  <span class="at">n_trials =</span> <span class="dv">1000</span>,</span>
-<span id="cb16-3"><a href="#cb16-3" tabindex="-1"></a>  <span class="at">target =</span> <span class="fl">0.30</span>,</span>
-<span id="cb16-4"><a href="#cb16-4" tabindex="-1"></a>  <span class="at">p_true =</span> <span class="fu">c</span>(<span class="fl">0.05</span>, <span class="fl">0.10</span>, <span class="fl">0.20</span>, <span class="fl">0.30</span>, <span class="fl">0.45</span>),</span>
-<span id="cb16-5"><a href="#cb16-5" tabindex="-1"></a>  <span class="at">n_cohort =</span> <span class="dv">20</span>,</span>
-<span id="cb16-6"><a href="#cb16-6" tabindex="-1"></a>  <span class="at">cohort_size =</span> <span class="dv">3</span>,</span>
-<span id="cb16-7"><a href="#cb16-7" tabindex="-1"></a>  <span class="at">titration =</span> <span class="cn">TRUE</span>,  <span class="co"># Enable titration phase</span></span>
-<span id="cb16-8"><a href="#cb16-8" tabindex="-1"></a>  <span class="at">seed =</span> <span class="dv">123</span></span>
-<span id="cb16-9"><a href="#cb16-9" tabindex="-1"></a>)</span></code></pre></div>
-</div>
-</div>
-<div id="stopping-reasons" class="section level2">
-<h2>Stopping Reasons</h2>
-<p>The package tracks why each trial terminated:</p>
-<ul>
-<li><code>&quot;max_cohorts_reached&quot;</code>: Normal completion</li>
-<li><code>&quot;n_earlystop_with_stay&quot;</code>: Converged at sample size
-limit</li>
-<li><code>&quot;n_earlystop_simple&quot;</code>: Reached sample size limit (simple
-rule)</li>
-<li><code>&quot;lowest_dose_too_toxic&quot;</code>: Safety stopping at lowest
-dose</li>
-<li><code>&quot;lowest_dose_eliminated&quot;</code>: Lowest dose eliminated during
-trial</li>
-<li><code>&quot;max_sample_size_reached&quot;</code>: Maximum total patients
-reached</li>
-</ul>
+<div id="agreement-with-the-boin-package" class="section level2">
+<h2>Agreement with the BOIN package</h2>
+<p>The engine draws one uniform variate per patient, in enrollment
+order, and applies the decision rules in the order used by
+<code>BOIN::get.oc()</code>. With the same seed and matching arguments
+the two implementations agree trial by trial, not merely on average. The
+package’s test suite checks this directly whenever the BOIN package is
+installed, and <code>inst/validation/compare-with-BOIN.R</code> runs the
+same comparison over 200 configurations covering every combination of
+the options the two packages share.</p>
+<div class="sourceCode" id="cb17"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" tabindex="-1"></a>reference <span class="ot">&lt;-</span> BOIN<span class="sc">::</span><span class="fu">get.oc</span>(</span>
+<span id="cb17-2"><a href="#cb17-2" tabindex="-1"></a>  <span class="at">target =</span> <span class="fl">0.30</span>, <span class="at">p.true =</span> <span class="fu">c</span>(<span class="fl">0.05</span>, <span class="fl">0.15</span>, <span class="fl">0.25</span>, <span class="fl">0.45</span>, <span class="fl">0.60</span>),</span>
+<span id="cb17-3"><a href="#cb17-3" tabindex="-1"></a>  <span class="at">ncohort =</span> <span class="dv">20</span>, <span class="at">cohortsize =</span> <span class="dv">3</span>, <span class="at">n.earlystop =</span> <span class="dv">18</span>,</span>
+<span id="cb17-4"><a href="#cb17-4" tabindex="-1"></a>  <span class="at">ntrial =</span> <span class="dv">1000</span>, <span class="at">seed =</span> <span class="dv">6</span></span>
+<span id="cb17-5"><a href="#cb17-5" tabindex="-1"></a>)</span>
+<span id="cb17-6"><a href="#cb17-6" tabindex="-1"></a></span>
+<span id="cb17-7"><a href="#cb17-7" tabindex="-1"></a>ours <span class="ot">&lt;-</span> <span class="fu">sim_boin</span>(</span>
+<span id="cb17-8"><a href="#cb17-8" tabindex="-1"></a>  <span class="at">target =</span> <span class="fl">0.30</span>, <span class="at">p_true =</span> <span class="fu">c</span>(<span class="fl">0.05</span>, <span class="fl">0.15</span>, <span class="fl">0.25</span>, <span class="fl">0.45</span>, <span class="fl">0.60</span>),</span>
+<span id="cb17-9"><a href="#cb17-9" tabindex="-1"></a>  <span class="at">n_cohort =</span> <span class="dv">20</span>, <span class="at">cohort_size =</span> <span class="dv">3</span>, <span class="at">n_earlystop =</span> <span class="dv">18</span>,</span>
+<span id="cb17-10"><a href="#cb17-10" tabindex="-1"></a>  <span class="at">n_trials =</span> <span class="dv">1000</span>, <span class="at">seed =</span> <span class="dv">6</span></span>
+<span id="cb17-11"><a href="#cb17-11" tabindex="-1"></a>)</span>
+<span id="cb17-12"><a href="#cb17-12" tabindex="-1"></a></span>
+<span id="cb17-13"><a href="#cb17-13" tabindex="-1"></a><span class="fu">all.equal</span>(<span class="fu">unname</span>(ours<span class="sc">$</span>sel_percent), reference<span class="sc">$</span>selpercent)</span>
+<span id="cb17-14"><a href="#cb17-14" tabindex="-1"></a><span class="fu">all.equal</span>(<span class="fu">unname</span>(ours<span class="sc">$</span>n_pts_dose), reference<span class="sc">$</span>npatients)</span></code></pre></div>
 </div>
 <div id="references" class="section level2">
 <h2>References</h2>
-<p>Liu, S. and Yuan, Y. (2015). Bayesian Optimal Interval Designs for
+<p>Liu S. and Yuan, Y. (2015). Bayesian Optimal Interval Designs for
 Phase I Clinical Trials. <em>Journal of the Royal Statistical Society:
-Series C</em>, 64, 507–523.</p>
-</div>
-<div id="see-also" class="section level2">
-<h2>See Also</h2>
-<ul>
-<li><code>?sim_boin</code> - Main simulation function</li>
-<li><code>?sim_boin_multi</code> - Multi-scenario simulation</li>
-<li><code>?get_boin_boundary</code> - BOIN boundary calculation</li>
-<li><code>?get_boin_decision</code> - Decision table generation</li>
-</ul>
+Series C</em>, 64, 507-523.</p>
+<p>Yan, F., Zhang, L., Zhou, Y., Pan, H., Liu, S. and Yuan, Y. (2020).
+BOIN: An R Package for Designing Single-Agent and Drug-Combination
+Dose-Finding Trials Using Bayesian Optimal Interval Designs. <em>Journal
+of Statistical Software</em>, 94(13), 1-32.</p>
 </div>
 
 

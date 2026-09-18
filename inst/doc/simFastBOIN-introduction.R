@@ -1,204 +1,128 @@
-## ----include = FALSE----------------------------------------------------------
-knitr::opts_chunk$set(
-  collapse = TRUE,
-  comment = "#>",
-  fig.width = 7,
-  fig.height = 5,
-  message = FALSE,  # Suppress messages
-  warning = FALSE   # Suppress warnings
-)
-
-## ----eval=FALSE---------------------------------------------------------------
-# # Install from GitHub
-# devtools::install_github("gosukehommaEX/simFastBOIN")
-
-## ----setup--------------------------------------------------------------------
+## ----setup, include = FALSE---------------------------------------------------
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
 library(simFastBOIN)
 
-## ----basic-simulation, message=FALSE------------------------------------------
-# Define design parameters
-target <- 0.30  # Target DLT rate (30%)
-p_true <- c(0.10, 0.25, 0.40, 0.55, 0.70)  # True toxicity probabilities
+## -----------------------------------------------------------------------------
+boin_lambda(target = 0.30)
 
-# Run simulation (progress messages suppressed)
-result <- sim_boin(
-  n_trials = 1000,
-  target = target,
-  p_true = p_true,
+## -----------------------------------------------------------------------------
+bd <- boin_boundary(target = 0.30, max_n = 18, extrasafe = TRUE)
+print(bd, cohort_size = 3)
+
+## -----------------------------------------------------------------------------
+decisions <- boin_decision_table(target = 0.30, max_n = 18)
+
+print(decisions, cohort_size = 3)
+
+## ----decision-plot, fig.width = 8, fig.height = 6, eval = requireNamespace("ggplot2", quietly = TRUE)----
+plot(decisions)
+
+## -----------------------------------------------------------------------------
+boin_stopping_table(bd, cohort_size = 3)
+
+## -----------------------------------------------------------------------------
+oc <- sim_boin(
+  target = 0.30,
+  p_true = c(0.05, 0.15, 0.30, 0.45, 0.60),
   n_cohort = 10,
   cohort_size = 3,
+  n_trials = 2000,
   seed = 123
 )
 
-# Display results
-print(result$summary)
+oc
 
-## ----boin-standard------------------------------------------------------------
-result_standard <- sim_boin(
-  n_trials = 1000,
-  target = 0.30,
-  p_true = c(0.10, 0.25, 0.40, 0.55, 0.70),
-  n_cohort = 10,
-  cohort_size = 3,
-  boundMTD = TRUE,              # Conservative MTD selection
-  n_earlystop_rule = "with_stay",  # Stop when converged
-  seed = 123
-)
+## -----------------------------------------------------------------------------
+oc$sel_percent
+oc$percent_no_mtd
+oc$overdose$pct_patients
 
-print(result_standard$summary, scenario_name = "BOIN Standard")
-
-## ----extrasafe----------------------------------------------------------------
-result_safe <- sim_boin(
-  n_trials = 1000,
-  target = 0.30,
-  p_true = c(0.05, 0.10, 0.20, 0.30, 0.45),
-  n_cohort = 10,
-  cohort_size = 3,
-  extrasafe = TRUE,  # Safety monitoring at lowest dose
-  offset = 0.05,     # Safety cutoff adjustment
-  seed = 123
-)
-
-print(result_safe$summary, scenario_name = "With Extra Safety")
-
-## ----conservative-------------------------------------------------------------
-result_conservative <- sim_boin(
-  n_trials = 1000,
-  target = 0.30,
-  p_true = seq(0.05, 0.45, by = 0.05),
-  n_cohort = 20,
-  cohort_size = 3,
-  extrasafe = TRUE,
-  boundMTD = TRUE,
-  n_earlystop_rule = "with_stay",
-  seed = 123
-)
-
-print(result_conservative$summary, scenario_name = "Maximum Conservatism")
-
-## ----multi-scenario, results='hide'-------------------------------------------
-# Define multiple scenarios
+## -----------------------------------------------------------------------------
 scenarios <- list(
-  list(name = "Scenario 1: MTD at DL3", 
-       p_true = c(0.05, 0.10, 0.20, 0.30, 0.45)),
-  list(name = "Scenario 2: MTD at DL4", 
-       p_true = c(0.10, 0.15, 0.25, 0.30, 0.45)),
-  list(name = "Scenario 3: All doses safe", 
-       p_true = c(0.05, 0.10, 0.15, 0.20, 0.25))
+  "MTD at dose 2" = c(0.15, 0.30, 0.45, 0.60, 0.75),
+  "MTD at dose 4" = c(0.02, 0.06, 0.15, 0.30, 0.50),
+  "All doses toxic" = c(0.40, 0.55, 0.65, 0.75, 0.85)
 )
 
-# Run multi-scenario simulation
-result_multi <- sim_boin_multi(
+sim_boin_multi(
+  target = 0.30,
   scenarios = scenarios,
-  target = 0.30,
-  n_trials = 1000,
   n_cohort = 10,
   cohort_size = 3,
+  n_trials = 2000,
   seed = 123
 )
 
-## ----multi-scenario-display---------------------------------------------------
-# Display aggregated results
-print(result_multi)
+## -----------------------------------------------------------------------------
+safe_curve <- c(0.01, 0.02, 0.05, 0.12, 0.30)
 
-## ----percent-format-----------------------------------------------------------
-print(result$summary, percent = TRUE)
+plain <- sim_boin(target = 0.30, p_true = safe_curve, n_cohort = 12,
+                  cohort_size = 3, n_trials = 1000, seed = 1)
+titrated <- sim_boin(target = 0.30, p_true = safe_curve, n_cohort = 12,
+                     cohort_size = 3, n_trials = 1000, titration = TRUE, seed = 1)
 
-## ----markdown-format----------------------------------------------------------
-print(result$summary, kable = TRUE, kable_format = "pipe")
+rbind(plain = plain$n_pts_dose, titrated = titrated$n_pts_dose)
 
-## ----html-format, eval=FALSE--------------------------------------------------
-# print(result$summary, kable = TRUE, kable_format = "html")
+## -----------------------------------------------------------------------------
+toxic_curve <- c(0.35, 0.45, 0.55, 0.65, 0.75)
 
-## ----detailed-results---------------------------------------------------------
-result_detailed <- sim_boin(
-  n_trials = 100,
+c(
+  plain = sim_boin(target = 0.30, p_true = toxic_curve, n_cohort = 12,
+                   cohort_size = 3, n_trials = 1000, seed = 2)$percent_no_mtd,
+  extrasafe = sim_boin(target = 0.30, p_true = toxic_curve, n_cohort = 12,
+                       cohort_size = 3, n_trials = 1000, extrasafe = TRUE,
+                       seed = 2)$percent_no_mtd
+)
+
+## -----------------------------------------------------------------------------
+c(default = boin_decision_table(0.25, 9)["1", "3"],
+  modified = boin_decision_table(0.25, 9, stay_on_1_of_3 = TRUE)["1", "3"])
+
+## -----------------------------------------------------------------------------
+trials <- boin_simulate(
   target = 0.30,
-  p_true = c(0.10, 0.25, 0.40, 0.55, 0.70),
+  p_true = c(0.05, 0.15, 0.30, 0.45, 0.60),
   n_cohort = 10,
   cohort_size = 3,
-  return_details = TRUE,
-  seed = 123
-)
-
-# Check first trial
-trial_1 <- result_detailed$detailed_results[[1]]
-cat("Trial 1 MTD:", trial_1$mtd, "\n")
-cat("Trial 1 stopping reason:", trial_1$reason, "\n")
-
-# Summary of stopping reasons
-stopping_reasons <- table(sapply(result_detailed$detailed_results, 
-                                function(x) x$reason))
-print(stopping_reasons)
-
-## ----design-comparison--------------------------------------------------------
-# Baseline
-result_baseline <- sim_boin(
   n_trials = 1000,
-  target = 0.30,
-  p_true = c(0.05, 0.10, 0.20, 0.30, 0.45, 0.60),
-  n_cohort = 20,
-  cohort_size = 3,
   seed = 123
 )
 
-# With boundMTD
-result_boundMTD <- sim_boin(
-  n_trials = 1000,
-  target = 0.30,
-  p_true = c(0.05, 0.10, 0.20, 0.30, 0.45, 0.60),
-  n_cohort = 20,
-  cohort_size = 3,
-  boundMTD = TRUE,
-  seed = 123
-)
+trials
 
-# Create comparison
-comparison <- data.frame(
-  Setting = c("Baseline", "boundMTD"),
-  Avg_Patients = c(
-    result_baseline$summary$avg_total_n_pts,
-    result_boundMTD$summary$avg_total_n_pts
-  ),
-  MTD_Selection_at_DL4 = c(
-    result_baseline$summary$mtd_selection_percent[4],
-    result_boundMTD$summary$mtd_selection_percent[4]
-  )
-)
+## -----------------------------------------------------------------------------
+free <- boin_select_mtd(trials$n_pts, trials$n_tox, target = 0.30)
+bounded <- boin_select_mtd(trials$n_pts, trials$n_tox, target = 0.30,
+                           bound_mtd = TRUE)
 
-print(comparison)
+table(free$mtd, bounded$mtd, useNA = "ifany")
 
-## ----benchmark, eval=FALSE----------------------------------------------------
-# # Benchmark with 10,000 trials
-# system.time({
-#   result_large <- sim_boin(
-#     n_trials = 10000,
-#     target = 0.30,
-#     p_true = seq(0.05, 0.45, by = 0.05),
-#     n_cohort = 48,
-#     cohort_size = 3,
-#     seed = 123
-#   )
-# })
+## -----------------------------------------------------------------------------
+round(boin_isotonic(trials$n_pts[1:5, ], trials$n_tox[1:5, ]), 3)
 
-## ----variable-cohort----------------------------------------------------------
-result_variable <- sim_boin(
-  n_trials = 1000,
-  target = 0.30,
-  p_true = c(0.10, 0.25, 0.40, 0.55, 0.70),
-  n_cohort = 10,
-  cohort_size = c(1, 3, 3, 3, 3, 3, 3, 3, 3, 3),  # First cohort: 1 patient
-  seed = 123
-)
+## -----------------------------------------------------------------------------
+oc_3p3(p_true = c(0.05, 0.15, 0.25, 0.45, 0.60))
 
-## ----titration----------------------------------------------------------------
-result_titration <- sim_boin(
-  n_trials = 1000,
-  target = 0.30,
-  p_true = c(0.05, 0.10, 0.20, 0.30, 0.45),
-  n_cohort = 20,
-  cohort_size = 3,
-  titration = TRUE,  # Enable titration phase
-  seed = 123
-)
+## -----------------------------------------------------------------------------
+expanded <- oc_3p3(p_true = c(0.05, 0.15, 0.25, 0.45, 0.60),
+                   mtd_rule = "expand")
+
+round(expanded$sel_percent, 1)
+round(expanded$total_n_pts, 2)
+
+## ----eval = FALSE-------------------------------------------------------------
+# reference <- BOIN::get.oc(
+#   target = 0.30, p.true = c(0.05, 0.15, 0.25, 0.45, 0.60),
+#   ncohort = 20, cohortsize = 3, n.earlystop = 18,
+#   ntrial = 1000, seed = 6
+# )
+# 
+# ours <- sim_boin(
+#   target = 0.30, p_true = c(0.05, 0.15, 0.25, 0.45, 0.60),
+#   n_cohort = 20, cohort_size = 3, n_earlystop = 18,
+#   n_trials = 1000, seed = 6
+# )
+# 
+# all.equal(unname(ours$sel_percent), reference$selpercent)
+# all.equal(unname(ours$n_pts_dose), reference$npatients)
 
